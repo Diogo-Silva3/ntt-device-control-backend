@@ -1,0 +1,14 @@
+const router = require('express').Router();
+const ctrl = require('../controllers/relatorio.controller');
+const { authMiddleware } = require('../middleware/auth.middleware');
+
+router.use(authMiddleware);
+
+router.get('/por-unidade', ctrl.getEquipamentosPorUnidade);
+router.get('/disponiveis', ctrl.getEquipamentosDisponiveis);
+router.get('/preparacao', ctrl.getRelatorioPreparacao);
+router.get('/agendamentos-semana', ctrl.getAgendamentosSemana);
+router.get('/exportar/pdf', ctrl.exportarPDF);
+router.get('/exportar/excel', ctrl.exportarExcel);
+
+module.exports = router;

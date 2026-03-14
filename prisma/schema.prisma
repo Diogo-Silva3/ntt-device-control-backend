@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Empresa {
+  id           Int           @id @default(autoincrement())
+  nome         String        @unique
+  cnpj         String?
+  logo         String?
+  ativo        Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  unidades     Unidade[]
+  usuarios     Usuario[]
+  equipamentos Equipamento[]
+
+  @@map("empresas")
+}
+
+model Unidade {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  cidade       String?
+  estado       String?
+  empresaId    Int           @map("empresa_id")
+  empresa      Empresa       @relation(fields: [empresaId], references: [id])
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  usuarios     Usuario[]
+  equipamentos Equipamento[]
+
+  @@unique([nome, empresaId])
+  @@map("unidades")
+}
+
+model Usuario {
+  id          Int          @id @default(autoincrement())
+  nome        String
+  email       String?
+  funcao      String?
+  role        String       @default("TECNICO")
+  senha       String?
+  ativo       Boolean      @default(true)
+  unidadeId   Int?         @map("unidade_id")
+  empresaId   Int          @map("empresa_id")
+  unidade     Unidade?     @relation(fields: [unidadeId], references: [id])
+  empresa     Empresa      @relation(fields: [empresaId], references: [id])
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  vinculacoes          Vinculacao[]
+  historicos           Historico[]
+  chamados             Chamado[]
+  equipamentosTecnico  Equipamento[] @relation("TecnicoEquipamentos")
+
+  @@map("usuarios")
+}
+
+model Equipamento {
+  id                   Int          @id @default(autoincrement())
+  tipo                 String?
+  marca                String?
+  modelo               String?
+  serialNumber         String?      @map("serial_number")
+  patrimonio           String?
+  status               String       @default("DISPONIVEL")
+  statusProcesso       String?      @default("Novo") @map("status_processo")
+  checklistPreparacao  String?      @map("checklist_preparacao")
+  checklistEntrega     String?      @map("checklist_entrega")
+  agendamento          String?
+  tecnicoId            Int?         @map("tecnico_id")
+  dataEntrega          DateTime?    @map("data_entrega")
+  observacao           String?
+  qrCode               String?      @map("qr_code")
+  unidadeId            Int?         @map("unidade_id")
+  empresaId            Int          @map("empresa_id")
+  unidade              Unidade?     @relation(fields: [unidadeId], references: [id])
+  empresa              Empresa      @relation(fields: [empresaId], references: [id])
+  tecnico              Usuario?     @relation("TecnicoEquipamentos", fields: [tecnicoId], references: [id])
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+  vinculacoes          Vinculacao[]
+  historicos           Historico[]
+  chamados             Chamado[]
+
+  @@map("equipamentos")
+}
+
+model Vinculacao {
+  id            Int         @id @default(autoincrement())
+  usuarioId     Int         @map("usuario_id")
+  equipamentoId Int         @map("equipamento_id")
+  dataInicio    DateTime    @default(now()) @map("data_inicio")
+  dataFim       DateTime?   @map("data_fim")
+  ativa         Boolean     @default(true)
+  observacao    String?
+  usuario       Usuario     @relation(fields: [usuarioId], references: [id])
+  equipamento   Equipamento @relation(fields: [equipamentoId], references: [id])
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@map("vinculacoes")
+}
+
+model Historico {
+  id            Int         @id @default(autoincrement())
+  equipamentoId Int         @map("equipamento_id")
+  usuarioId     Int?        @map("usuario_id")
+  acao          String
+  descricao     String?
+  dataInicio    DateTime    @default(now()) @map("data_inicio")
+  dataFim       DateTime?   @map("data_fim")
+  equipamento   Equipamento @relation(fields: [equipamentoId], references: [id])
+  usuario       Usuario?    @relation(fields: [usuarioId], references: [id])
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@map("historicos")
+}
+
+model Chamado {
+  id            Int          @id @default(autoincrement())
+  titulo        String
+  descricao     String?
+  status        String       @default("ABERTO")
+  prioridade    String?      @default("MEDIA")
+  equipamentoId Int?         @map("equipamento_id")
+  usuarioId     Int?         @map("usuario_id")
+  equipamento   Equipamento? @relation(fields: [equipamentoId], references: [id])
+  usuario       Usuario?     @relation(fields: [usuarioId], references: [id])
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@map("chamados")
+}
