@@ -2,14 +2,13 @@
   "name": "inventario-ti-backend",
   "version": "1.0.0",
   "description": "Backend do sistema de inventário de TI - Wickbold",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
-    "dev": "node -e \"process.env.NODE_ENV='development'\" && nodemon src/server.js",
-    "start": "node index.js",
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
-    "prisma:seed": "node prisma/seed.js",
-    "setup": "npm install && npx prisma generate && npx prisma migrate deploy && node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0",
