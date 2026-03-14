@@ -19,15 +19,29 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middlewares
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://nttdevicecontrol.web.app',
+  'https://nttdevicecontrol.firebaseapp.com',
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://nttdevicecontrol.web.app',
-    'https://nttdevicecontrol.firebaseapp.com',
-    process.env.FRONTEND_URL,
-  ].filter(Boolean),
+  origin: (origin, callback) => {
+    // Permite requisições sem origin (ex: mobile, Postman) e origens permitidas
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Responde preflight OPTIONS em todas as rotas
+app.options('*', cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
