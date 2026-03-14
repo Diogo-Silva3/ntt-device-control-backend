@@ -75,6 +75,20 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+
+  // Auto-ping a cada 5 minutos para evitar sleep no Railway
+  const SELF_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/api/health`
+    : `http://localhost:${PORT}/api/health`;
+
+  setInterval(async () => {
+    try {
+      const https = require('https');
+      const http = require('http');
+      const client = SELF_URL.startsWith('https') ? https : http;
+      client.get(SELF_URL, () => {}).on('error', () => {});
+    } catch (_) {}
+  }, 5 * 60 * 1000); // 5 minutos
 });
 
 module.exports = app;
