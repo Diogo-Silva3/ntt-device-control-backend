@@ -135,51 +135,99 @@ const exportarExcel = async (req, res) => {
   try {
     const { tipo = 'geral' } = req.query;
     const empresaId = req.usuario.empresaId;
-
-    const equipamentos = await prisma.equipamento.findMany({
-      where: { empresaId, ...(tipo === 'disponiveis' && { status: 'DISPONIVEL' }) },
-      include: {
-        unidade: true,
-        vinculacoes: {
-          where: { ativa: true },
-          include: { usuario: { select: { nome: true, funcao: true } } },
-        },
-      },
-      orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }],
-    });
-
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Equipamentos');
+    const headerStyle = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+    const headerFont = { bold: true, color: { argb: 'FFFFFFFF' } };
 
-    sheet.columns = [
-      { header: 'ID', key: 'id', width: 8 },
-      { header: 'Tipo', key: 'tipo', width: 15 },
-      { header: 'Marca', key: 'marca', width: 15 },
-      { header: 'Modelo', key: 'modelo', width: 20 },
-      { header: 'Serial', key: 'serial', width: 20 },
-      { header: 'Patrimônio', key: 'patrimonio', width: 15 },
-      { header: 'Status', key: 'status', width: 15 },
-      { header: 'Unidade', key: 'unidade', width: 20 },
-      { header: 'Usuário Atual', key: 'usuario', width: 25 },
-      { header: 'Função', key: 'funcao', width: 20 },
-      { header: 'Cadastrado em', key: 'createdAt', width: 18 },
-    ];
+    const addHeader = (sheet) => {
+      sheet.getRow(1).fill = headerStyle;
+      sheet.getRow(1).font = headerFont;
+    };
 
-    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
-    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-
-    equipamentos.forEach(eq => {
-      sheet.addRow({
-        id: eq.id, tipo: eq.tipo || '', marca: eq.marca || '', modelo: eq.modelo || '',
-        serial: eq.serialNumber || '', patrimonio: eq.patrimonio || '', status: eq.status,
-        unidade: eq.unidade?.nome || '', usuario: eq.vinculacoes[0]?.usuario?.nome || '',
-        funcao: eq.vinculacoes[0]?.usuario?.funcao || '',
-        createdAt: new Date(eq.createdAt).toLocaleDateString('pt-BR'),
+    if (tipo === 'colaboradores') {
+      const usuarios = await prisma.usuario.findMany({
+        where: { empresaId, ativo: true },
+        include: { unidade: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { equipamento: { select: { tipo: true, marca: true, modelo: true, serialNumber: true } } } } },
+        orderBy: { nome: 'asc' },
       });
-    });
+      const sheet = workbook.addWorksheet('Colaboradores');
+      sheet.columns = [
+        { header: 'Nome', key: 'nome', width: 30 }, { header: 'Função', key: 'funcao', width: 20 },
+        { header: 'Email', key: 'email', width: 30 }, { header: 'Unidade', key: 'unidade', width: 20 },
+        { header: 'Equipamento', key: 'equipamento', width: 25 }, { header: 'Serial', key: 'serial', width: 20 },
+      ];
+      addHeader(sheet);
+      usuarios.forEach(u => {
+        if (u.vinculacoes.length === 0) {
+          sheet.addRow({ nome: u.nome, funcao: u.funcao || '', email: u.email || '', unidade: u.unidade?.nome || '', equipamento: '', serial: '' });
+        } else {
+          u.vinculacoes.forEach(v => {
+            sheet.addRow({ nome: u.nome, funcao: u.funcao || '', email: u.email || '', unidade: u.unidade?.nome || '', equipamento: [v.equipamento.marca, v.equipamento.modelo].filter(Boolean).join(' '), serial: v.equipamento.serialNumber || '' });
+          });
+        }
+      });
+    } else if (tipo === 'vinculacoes') {
+      const vinculacoes = await prisma.vinculacao.findMany({
+        where: { ativa: true, usuario: { empresaId } },
+        include: { usuario: { select: { nome: true, funcao: true, email: true, unidade: { select: { nome: true } } } }, equipamento: { select: { tipo: true, marca: true, modelo: true, serialNumber: true, unidade: { select: { nome: true } } } } },
+        orderBy: { dataInicio: 'desc' },
+      });
+      const sheet = workbook.addWorksheet('Vinculações Ativas');
+      sheet.columns = [
+        { header: 'Colaborador', key: 'colaborador', width: 30 }, { header: 'Função', key: 'funcao', width: 20 },
+        { header: 'Unidade', key: 'unidade', width: 20 }, { header: 'Equipamento', key: 'equipamento', width: 25 },
+        { header: 'Serial', key: 'serial', width: 20 }, { header: 'Data Início', key: 'dataInicio', width: 15 },
+      ];
+      addHeader(sheet);
+      vinculacoes.forEach(v => sheet.addRow({ colaborador: v.usuario.nome, funcao: v.usuario.funcao || '', unidade: v.usuario.unidade?.nome || '', equipamento: [v.equipamento.marca, v.equipamento.modelo].filter(Boolean).join(' '), serial: v.equipamento.serialNumber || '', dataInicio: new Date(v.dataInicio).toLocaleDateString('pt-BR') }));
+    } else if (tipo === 'porUnidade') {
+      const unidades = await prisma.unidade.findMany({
+        where: { empresaId },
+        include: { equipamentos: { select: { id: true, tipo: true, marca: true, modelo: true, serialNumber: true, status: true } } },
+        orderBy: { nome: 'asc' },
+      });
+      const sheet = workbook.addWorksheet('Por Unidade');
+      sheet.columns = [
+        { header: 'Unidade', key: 'unidade', width: 25 }, { header: 'Equipamento', key: 'equipamento', width: 25 },
+        { header: 'Tipo', key: 'tipo', width: 15 }, { header: 'Serial', key: 'serial', width: 20 },
+        { header: 'Status', key: 'status', width: 15 },
+      ];
+      addHeader(sheet);
+      unidades.forEach(u => u.equipamentos.forEach(eq => sheet.addRow({ unidade: u.nome, equipamento: [eq.marca, eq.modelo].filter(Boolean).join(' '), tipo: eq.tipo || '', serial: eq.serialNumber || '', status: eq.status })));
+    } else if (tipo === 'colabSemEquip') {
+      const usuarios = await prisma.usuario.findMany({ where: { empresaId, ativo: true, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: { nome: 'asc' } });
+      const sheet = workbook.addWorksheet('Colab. sem Equipamento');
+      sheet.columns = [{ header: 'Nome', key: 'nome', width: 30 }, { header: 'Função', key: 'funcao', width: 20 }, { header: 'Email', key: 'email', width: 30 }, { header: 'Unidade', key: 'unidade', width: 20 }];
+      addHeader(sheet);
+      usuarios.forEach(u => sheet.addRow({ nome: u.nome, funcao: u.funcao || '', email: u.email || '', unidade: u.unidade?.nome || '' }));
+    } else if (tipo === 'equipSemColab') {
+      const equipamentos = await prisma.equipamento.findMany({ where: { empresaId, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }] });
+      const sheet = workbook.addWorksheet('Equip. sem Colaborador');
+      sheet.columns = [{ header: 'Equipamento', key: 'equipamento', width: 25 }, { header: 'Tipo', key: 'tipo', width: 15 }, { header: 'Serial', key: 'serial', width: 20 }, { header: 'Status', key: 'status', width: 15 }, { header: 'Unidade', key: 'unidade', width: 20 }];
+      addHeader(sheet);
+      equipamentos.forEach(eq => sheet.addRow({ equipamento: [eq.marca, eq.modelo].filter(Boolean).join(' '), tipo: eq.tipo || '', serial: eq.serialNumber || '', status: eq.status, unidade: eq.unidade?.nome || '' }));
+    } else {
+      // geral ou disponiveis
+      const equipamentos = await prisma.equipamento.findMany({
+        where: { empresaId, ...(tipo === 'disponiveis' && { status: 'DISPONIVEL' }) },
+        include: { unidade: true, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true, funcao: true } } } } },
+        orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }],
+      });
+      const sheet = workbook.addWorksheet('Equipamentos');
+      sheet.columns = [
+        { header: 'ID', key: 'id', width: 8 }, { header: 'Tipo', key: 'tipo', width: 15 },
+        { header: 'Marca', key: 'marca', width: 15 }, { header: 'Modelo', key: 'modelo', width: 20 },
+        { header: 'Serial', key: 'serial', width: 20 }, { header: 'Patrimônio', key: 'patrimonio', width: 15 },
+        { header: 'Status', key: 'status', width: 15 }, { header: 'Unidade', key: 'unidade', width: 20 },
+        { header: 'Colaborador Atual', key: 'usuario', width: 25 }, { header: 'Função', key: 'funcao', width: 20 },
+        { header: 'Cadastrado em', key: 'createdAt', width: 18 },
+      ];
+      addHeader(sheet);
+      equipamentos.forEach(eq => sheet.addRow({ id: eq.id, tipo: eq.tipo || '', marca: eq.marca || '', modelo: eq.modelo || '', serial: eq.serialNumber || '', patrimonio: eq.patrimonio || '', status: eq.status, unidade: eq.unidade?.nome || '', usuario: eq.vinculacoes[0]?.usuario?.nome || '', funcao: eq.vinculacoes[0]?.usuario?.funcao || '', createdAt: new Date(eq.createdAt).toLocaleDateString('pt-BR') }));
+    }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=equipamentos-${Date.now()}.xlsx`);
+    res.setHeader('Content-Disposition', `attachment; filename=relatorio-${tipo}-${Date.now()}.xlsx`);
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
