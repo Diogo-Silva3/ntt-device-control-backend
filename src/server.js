@@ -76,19 +76,26 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 
-  // Auto-ping a cada 5 minutos para evitar sleep no Railway
-  const SELF_URL = process.env.RAILWAY_PUBLIC_DOMAIN
-    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/api/health`
-    : `http://localhost:${PORT}/api/health`;
+  // Auto-ping a cada 5 minutos para evitar sleep no Render
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL
+    ? `${process.env.RENDER_EXTERNAL_URL}/api/health`
+    : process.env.RAILWAY_PUBLIC_DOMAIN
+      ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}/api/health`
+      : null;
 
-  setInterval(async () => {
-    try {
-      const https = require('https');
-      const http = require('http');
-      const client = SELF_URL.startsWith('https') ? https : http;
-      client.get(SELF_URL, () => {}).on('error', () => {});
-    } catch (_) {}
-  }, 5 * 60 * 1000); // 5 minutos
+  if (SELF_URL) {
+    setInterval(() => {
+      try {
+        const https = require('https');
+        const http = require('http');
+        const client = SELF_URL.startsWith('https') ? https : http;
+        client.get(SELF_URL, (res) => {
+          console.log(`[ping] ${new Date().toISOString()} → ${res.statusCode}`);
+        }).on('error', (e) => console.log('[ping] erro:', e.message));
+      } catch (_) {}
+    }, 5 * 60 * 1000);
+    console.log(`🔁 Auto-ping ativo: ${SELF_URL}`);
+  }
 });
 
 module.exports = app;
