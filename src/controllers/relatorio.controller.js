@@ -263,4 +263,105 @@ const getAgendamentosSemana = async (req, res) => {
   }
 };
 
-module.exports = { getEquipamentosPorUnidade, getEquipamentosDisponiveis, exportarPDF, exportarExcel, getRelatorioPreparacao, getAgendamentosSemana };
+const getTodosColaboradores = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const usuarios = await prisma.usuario.findMany({
+      where: { empresaId, ativo: true },
+      include: {
+        unidade: { select: { nome: true } },
+        vinculacoes: {
+          where: { ativa: true },
+          include: { equipamento: { select: { tipo: true, marca: true, modelo: true, serialNumber: true } } },
+        },
+      },
+      orderBy: { nome: 'asc' },
+    });
+    res.json(usuarios);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar colaboradores' });
+  }
+};
+
+const getVinculacoesAtivas = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const vinculacoes = await prisma.vinculacao.findMany({
+      where: { ativa: true, usuario: { empresaId } },
+      include: {
+        usuario: { select: { nome: true, funcao: true, email: true, unidade: { select: { nome: true } } } },
+        equipamento: { select: { tipo: true, marca: true, modelo: true, serialNumber: true, unidade: { select: { nome: true } } } },
+      },
+      orderBy: { dataInicio: 'desc' },
+    });
+    res.json(vinculacoes);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar vinculações' });
+  }
+};
+
+const getEquipamentosPorUnidadeResumo = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const unidades = await prisma.unidade.findMany({
+      where: { empresaId },
+      include: {
+        equipamentos: {
+          select: { id: true, status: true, tipo: true, marca: true, modelo: true, serialNumber: true },
+        },
+      },
+      orderBy: { nome: 'asc' },
+    });
+    const resultado = unidades.map(u => ({
+      id: u.id,
+      nome: u.nome,
+      cidade: u.cidade,
+      total: u.equipamentos.length,
+      disponiveis: u.equipamentos.filter(e => e.status === 'DISPONIVEL').length,
+      emUso: u.equipamentos.filter(e => e.status === 'EM_USO').length,
+      manutencao: u.equipamentos.filter(e => e.status === 'MANUTENCAO').length,
+      equipamentos: u.equipamentos,
+    }));
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar equipamentos por unidade' });
+  }
+};
+
+const getColaboradoresSemEquipamento = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const usuarios = await prisma.usuario.findMany({
+      where: {
+        empresaId,
+        ativo: true,
+        vinculacoes: { none: { ativa: true } },
+      },
+      include: { unidade: { select: { nome: true } } },
+      orderBy: { nome: 'asc' },
+    });
+    res.json(usuarios);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar colaboradores sem equipamento' });
+  }
+};
+
+const getEquipamentosSemColaborador = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const equipamentos = await prisma.equipamento.findMany({
+      where: {
+        empresaId,
+        vinculacoes: { none: { ativa: true } },
+      },
+      include: { unidade: { select: { nome: true } } },
+      orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }],
+    });
+    res.json(equipamentos);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar equipamentos sem colaborador' });
+  }
+};
+
+module.exports = { getEquipamentosPorUnidade, getEquipamentosDisponiveis, exportarPDF, exportarExcel, getRelatorioPreparacao, getAgendamentosSemana, getTodosColaboradores, getVinculacoesAtivas, getEquipamentosPorUnidadeResumo, getColaboradoresSemEquipamento, getEquipamentosSemColaborador };
+
