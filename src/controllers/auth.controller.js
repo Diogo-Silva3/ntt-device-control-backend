@@ -2,7 +2,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma');
 
-const DOMINIOS_PERMITIDOS = ['@grupobimbo.com', '@global.nttdata.com', '@gbsupport.net'];
+const DOMINIOS_PERMITIDOS = process.env.ALLOWED_DOMAINS
+  ? process.env.ALLOWED_DOMAINS.split(',').map(d => d.trim())
+  : ['@grupobimbo.com', '@global.nttdata.com', '@gbsupport.net'];
 
 const login = async (req, res) => {
   try {

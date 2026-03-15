@@ -3,6 +3,8 @@ const prisma = require('../config/prisma');
 const getDashboard = async (req, res) => {
   try {
     const empresaId = req.usuario.empresaId;
+    const hoje = new Date();
+    const tresDiasAtras = new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000);
 
     const [
       totalEquipamentos,
@@ -20,6 +22,8 @@ const getDashboard = async (req, res) => {
       porUnidade,
       porTipo,
       ultimosEquipamentos,
+      colaboradoresSemEquipamento,
+      atrasadosNaPreparacao,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { empresaId, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { empresaId, status: 'EM_USO' } }),
@@ -57,10 +61,26 @@ const getDashboard = async (req, res) => {
         take: 5,
         include: { unidade: true },
       }),
+      // Colaboradores sem equipamento ativo
+      prisma.usuario.count({
+        where: {
+          empresaId,
+          ativo: true,
+          vinculacoes: { none: { ativo: true } },
+        },
+      }),
+      // Equipamentos em preparação há mais de 3 dias
+      prisma.equipamento.count({
+        where: {
+          empresaId,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: { in: ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega'] },
+          updatedAt: { lt: tresDiasAtras },
+        },
+      }),
     ]);
 
     // Entregas por mês (últimos 6 meses)
-    const hoje = new Date();
     const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
     const entregasPorMesRaw = await prisma.equipamento.findMany({
       where: {
@@ -84,14 +104,27 @@ const getDashboard = async (req, res) => {
       if (mesesMap[key]) mesesMap[key].entregas++;
     });
 
+    // Atividades recentes (últimas vinculações)
+    const atividadesRecentes = await prisma.vinculacao.findMany({
+      where: { empresaId },
+      orderBy: { createdAt: 'desc' },
+      take: 8,
+      include: {
+        usuario: { select: { nome: true } },
+        equipamento: { select: { marca: true, modelo: true, serialNumber: true } },
+      },
+    });
+
     res.json({
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
       processo: { emPreparacao, aguardandoImagem, aguardandoSoftware, agendados, entregues },
+      alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade: porUnidade.map(u => ({ unidade: u.nome, equipamentos: u._count.equipamentos, usuarios: u._count.usuarios })),
       porTipo: porTipo.map(t => ({ tipo: t.tipo || 'Sem tipo', total: t._count.tipo })),
       ultimosEquipamentos,
       entregasPorMes: Object.values(mesesMap),
+      atividadesRecentes,
     });
   } catch (err) {
     console.error(err);
