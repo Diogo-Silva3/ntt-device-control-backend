@@ -45,84 +45,183 @@ const exportarPDF = async (req, res) => {
   try {
     const { tipo = 'geral' } = req.query;
     const empresaId = req.usuario.empresaId;
-
     const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
-    const equipamentos = await prisma.equipamento.findMany({
-      where: { empresaId, ...(tipo === 'disponiveis' && { status: 'DISPONIVEL' }) },
-      include: {
-        unidade: true,
-        vinculacoes: {
-          where: { ativa: true },
-          include: { usuario: { select: { nome: true } } },
-        },
-      },
-      orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }],
-    });
 
+    // Busca dados conforme tipo
+    let titulo = 'Relatório';
+    let headers = [];
+    let colWidths = [];
+    let rows = [];
+
+    const statusLabel = s => s === 'DISPONIVEL' ? 'Disponível' : s === 'EM_USO' ? 'Em Uso' : s === 'MANUTENCAO' ? 'Manutenção' : s || '-';
+    const trunc = (s, n = 28) => String(s || '-').substring(0, n);
+
+    if (tipo === 'geral' || tipo === 'disponiveis') {
+      titulo = tipo === 'disponiveis' ? 'Equipamentos Disponíveis' : 'Todos os Equipamentos';
+      headers = ['Marca / Modelo', 'Tipo', 'Serial', 'Unidade', 'Status', 'Colaborador'];
+      colWidths = [130, 60, 105, 90, 70, 80];
+      const data = await prisma.equipamento.findMany({
+        where: { empresaId, ...(tipo === 'disponiveis' && { status: 'DISPONIVEL' }) },
+        include: { unidade: true, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true } } } } },
+        orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }],
+      });
+      rows = data.map(eq => [
+        trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim()),
+        trunc(eq.tipo, 12), trunc(eq.serialNumber, 18), trunc(eq.unidade?.nome, 18),
+        statusLabel(eq.status), trunc(eq.vinculacoes[0]?.usuario?.nome, 20),
+      ]);
+    } else if (tipo === 'colaboradores') {
+      titulo = 'Todos os Colaboradores';
+      headers = ['Nome', 'Função', 'Email', 'Unidade', 'Equipamento'];
+      colWidths = [120, 90, 120, 90, 115];
+      const data = await prisma.usuario.findMany({
+        where: { empresaId, ativo: true },
+        include: { unidade: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { equipamento: { select: { marca: true, modelo: true, serialNumber: true } } } } },
+        orderBy: { nome: 'asc' },
+      });
+      rows = data.map(u => [
+        trunc(u.nome, 22), trunc(u.funcao, 18), trunc(u.email, 24), trunc(u.unidade?.nome, 18),
+        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : 'Sem equipamento', 22),
+      ]);
+    } else if (tipo === 'vinculacoes') {
+      titulo = 'Vinculações Ativas';
+      headers = ['Colaborador', 'Função', 'Unidade', 'Equipamento', 'Serial', 'Desde'];
+      colWidths = [110, 80, 85, 100, 85, 75];
+      const data = await prisma.vinculacao.findMany({
+        where: { ativa: true, usuario: { empresaId } },
+        include: { usuario: { select: { nome: true, funcao: true, unidade: { select: { nome: true } } } }, equipamento: { select: { marca: true, modelo: true, serialNumber: true } } },
+        orderBy: { dataInicio: 'desc' },
+      });
+      rows = data.map(v => [
+        trunc(v.usuario.nome, 20), trunc(v.usuario.funcao, 16), trunc(v.usuario.unidade?.nome, 16),
+        trunc(`${v.equipamento.marca || ''} ${v.equipamento.modelo || ''}`.trim(), 20),
+        trunc(v.equipamento.serialNumber, 16), new Date(v.dataInicio).toLocaleDateString('pt-BR'),
+      ]);
+    } else if (tipo === 'porUnidade') {
+      titulo = 'Equipamentos por Unidade';
+      headers = ['Unidade', 'Equipamento', 'Tipo', 'Serial', 'Status'];
+      colWidths = [110, 130, 70, 110, 80];
+      const data = await prisma.unidade.findMany({
+        where: { empresaId },
+        include: { equipamentos: { select: { tipo: true, marca: true, modelo: true, serialNumber: true, status: true } } },
+        orderBy: { nome: 'asc' },
+      });
+      data.forEach(u => u.equipamentos.forEach(eq => rows.push([
+        trunc(u.nome, 20), trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 24),
+        trunc(eq.tipo, 14), trunc(eq.serialNumber, 20), statusLabel(eq.status),
+      ])));
+    } else if (tipo === 'colabSemEquip') {
+      titulo = 'Colaboradores sem Equipamento';
+      headers = ['Nome', 'Função', 'Email', 'Unidade'];
+      colWidths = [140, 110, 150, 135];
+      const data = await prisma.usuario.findMany({ where: { empresaId, ativo: true, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: { nome: 'asc' } });
+      rows = data.map(u => [trunc(u.nome, 26), trunc(u.funcao, 20), trunc(u.email, 28), trunc(u.unidade?.nome, 24)]);
+    } else if (tipo === 'equipSemColab') {
+      titulo = 'Equipamentos sem Colaborador';
+      headers = ['Equipamento', 'Tipo', 'Serial', 'Status', 'Unidade'];
+      colWidths = [140, 70, 110, 80, 135];
+      const data = await prisma.equipamento.findMany({ where: { empresaId, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }] });
+      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 26), trunc(eq.tipo, 14), trunc(eq.serialNumber, 20), statusLabel(eq.status), trunc(eq.unidade?.nome, 24)]);
+    } else if (tipo === 'preparacao') {
+      titulo = 'Preparação de Equipamentos';
+      headers = ['Equipamento', 'Serial', 'Unidade', 'Etapa', 'Técnico', 'Dias'];
+      colWidths = [120, 90, 90, 110, 80, 45];
+      const ORDEM = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega', 'Entregue ao Usuário'];
+      const data = await prisma.equipamento.findMany({
+        where: { empresaId },
+        select: { marca: true, modelo: true, serialNumber: true, statusProcesso: true, updatedAt: true, unidade: { select: { nome: true } }, tecnico: { select: { nome: true } } },
+        orderBy: { updatedAt: 'desc' },
+      });
+      rows = data.map(eq => {
+        const dias = Math.floor((new Date() - new Date(eq.updatedAt)) / (1000 * 60 * 60 * 24));
+        return [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 22), trunc(eq.serialNumber, 16), trunc(eq.unidade?.nome, 16), trunc(eq.statusProcesso || 'Novo', 20), trunc(eq.tecnico?.nome, 16), `${dias}d`];
+      });
+    } else if (tipo === 'agendamentos') {
+      titulo = 'Agendamentos da Semana';
+      headers = ['Equipamento', 'Serial', 'Unidade', 'Destinatário', 'Técnico'];
+      colWidths = [120, 90, 90, 120, 115];
+      const data = await prisma.equipamento.findMany({
+        where: { empresaId, statusProcesso: 'Agendado para Entrega' },
+        include: { unidade: { select: { nome: true } }, tecnico: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true } } }, take: 1 } },
+        orderBy: { updatedAt: 'asc' },
+      });
+      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 22), trunc(eq.serialNumber, 16), trunc(eq.unidade?.nome, 16), trunc(eq.vinculacoes[0]?.usuario?.nome, 22), trunc(eq.tecnico?.nome, 20)]);
+    }
+
+    // Gera PDF
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=relatorio-${Date.now()}.pdf`);
+    res.setHeader('Content-Disposition', `attachment; filename=relatorio-${tipo}-${Date.now()}.pdf`);
     doc.pipe(res);
 
+    const pageWidth = 515;
     const logoNTT = path.join(__dirname, '../../logo-ntt.png');
     const logoWick = path.join(__dirname, '../../logo-wickbold.png');
-    const pageWidth = 515;
-    const logoH = 36;
 
-    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 30, { height: logoH, fit: [120, logoH] });
-    if (fs.existsSync(logoWick)) doc.image(logoWick, 435, 30, { height: logoH, fit: [120, logoH] });
+    // Cabeçalho
+    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 28, { height: 32, fit: [110, 32] });
+    if (fs.existsSync(logoWick)) doc.image(logoWick, 440, 28, { height: 32, fit: [110, 32] });
+    doc.moveTo(40, 70).lineTo(555, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
 
-    doc.moveTo(40, 75).lineTo(555, 75).strokeColor('#e2e8f0').lineWidth(1).stroke();
-    doc.moveDown(3);
+    doc.y = 82;
+    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text(titulo, { align: 'center' });
+    doc.fontSize(8).font('Helvetica').fillColor('#64748b')
+      .text(`${empresa?.nome || 'Empresa'} · Gerado em ${new Date().toLocaleString('pt-BR')} · Total: ${rows.length} registros`, { align: 'center' });
+    doc.moveDown(0.8);
 
-    doc.fontSize(16).font('Helvetica-Bold').fillColor('#1e293b').text('Relatório de Equipamentos', { align: 'center' });
-    doc.fontSize(9).font('Helvetica').fillColor('#64748b')
-      .text(`${empresa?.nome || 'Empresa'} · Gerado em ${new Date().toLocaleString('pt-BR')}`, { align: 'center' });
-    doc.moveDown(1);
+    // Linha separadora
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    doc.moveDown(0.5);
 
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#1e293b').text('Resumo');
-    doc.moveDown(0.3);
-    doc.fontSize(9).font('Helvetica').fillColor('#475569').text(
-      `Total: ${equipamentos.length}   ·   Em Uso: ${equipamentos.filter(e => e.status === 'EM_USO').length}   ·   Disponíveis: ${equipamentos.filter(e => e.status === 'DISPONIVEL').length}   ·   Manutenção: ${equipamentos.filter(e => e.status === 'MANUTENCAO').length}`
-    );
-    doc.moveDown(1);
-
-    const colWidths = [130, 70, 110, 90, 75, 80];
-    const headers = ['Marca / Modelo', 'Tipo', 'Serial', 'Unidade', 'Status', 'Colaborador'];
-
-    doc.rect(40, doc.y, pageWidth, 18).fill('#1e40af');
-    const headerY = doc.y + 4;
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#ffffff');
+    // Cabeçalho da tabela
+    const tableTop = doc.y;
+    doc.rect(40, tableTop, pageWidth, 16).fill('#1e40af');
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff');
+    let xPos = 40;
     headers.forEach((h, i) => {
-      const x = 40 + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
-      doc.text(h, x + 3, headerY, { width: colWidths[i] - 3 });
+      doc.text(h.toUpperCase(), xPos + 4, tableTop + 4, { width: colWidths[i] - 4, lineBreak: false });
+      xPos += colWidths[i];
     });
-    doc.moveDown(1.2);
+    doc.y = tableTop + 18;
 
-    doc.fontSize(8).font('Helvetica');
-    equipamentos.forEach((eq, idx) => {
-      if (doc.y > 760) { doc.addPage(); doc.moveDown(1); }
+    // Linhas da tabela
+    doc.fontSize(7.5).font('Helvetica');
+    rows.forEach((row, idx) => {
+      if (doc.y > 770) {
+        doc.addPage();
+        // Repete cabeçalho na nova página
+        const newTop = doc.y;
+        doc.rect(40, newTop, pageWidth, 16).fill('#1e40af');
+        doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff');
+        let x2 = 40;
+        headers.forEach((h, i) => { doc.text(h.toUpperCase(), x2 + 4, newTop + 4, { width: colWidths[i] - 4, lineBreak: false }); x2 += colWidths[i]; });
+        doc.y = newTop + 18;
+        doc.fontSize(7.5).font('Helvetica');
+      }
       const rowY = doc.y;
-      if (idx % 2 === 0) doc.rect(40, rowY - 2, pageWidth, 16).fill('#f8fafc');
-      const cols = [
-        `${eq.marca || ''} ${eq.modelo || ''}`.trim() || '-',
-        eq.tipo || '-',
-        eq.serialNumber || '-',
-        eq.unidade?.nome || '-',
-        eq.status === 'DISPONIVEL' ? 'Disponível' : eq.status === 'EM_USO' ? 'Em Uso' : eq.status === 'MANUTENCAO' ? 'Manutenção' : eq.status,
-        eq.vinculacoes[0]?.usuario?.nome || '-',
-      ];
+      if (idx % 2 === 0) doc.rect(40, rowY, pageWidth, 14).fill('#f8fafc');
       doc.fillColor('#334155');
-      cols.forEach((c, i) => {
-        const x = 40 + colWidths.slice(0, i).reduce((a, b) => a + b, 0);
-        doc.text(String(c).substring(0, 22), x + 3, rowY, { width: colWidths[i] - 3 });
+      let x = 40;
+      row.forEach((cell, i) => {
+        doc.text(String(cell), x + 4, rowY + 3, { width: colWidths[i] - 6, lineBreak: false });
+        x += colWidths[i];
       });
-      doc.moveDown(0.55);
+      // Linha divisória leve
+      doc.moveTo(40, rowY + 14).lineTo(555, rowY + 14).strokeColor('#f1f5f9').lineWidth(0.3).stroke();
+      doc.y = rowY + 15;
     });
 
-    doc.moveTo(40, doc.y + 10).lineTo(555, doc.y + 10).strokeColor('#e2e8f0').lineWidth(1).stroke();
-    doc.moveDown(1.5);
-    doc.fontSize(8).fillColor('#94a3b8').font('Helvetica').text('NTT Device Control · Wickbold', { align: 'center' });
+    if (rows.length === 0) {
+      doc.moveDown(1);
+      doc.fontSize(9).fillColor('#94a3b8').text('Nenhum registro encontrado.', { align: 'center' });
+    }
+
+    // Rodapé
+    doc.moveDown(1);
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    doc.moveDown(0.5);
+    doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
+      .text('NTT Device Control · Wickbold · Documento gerado automaticamente', { align: 'center' });
 
     doc.end();
   } catch (err) {
