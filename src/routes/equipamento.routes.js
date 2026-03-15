@@ -8,6 +8,7 @@ router.get('/', ctrl.listar);
 router.get('/:id', ctrl.buscarPorId);
 router.get('/:id/qrcode', ctrl.qrcode);
 router.post('/', ctrl.criar);
+router.post('/regenerar-qrcodes', adminMiddleware, ctrl.regenerarQrCodes);
 router.put('/:id', ctrl.atualizar);
 router.put('/:id/checklist', ctrl.atualizarChecklist);
 router.put('/:id/agendamento', ctrl.atualizarAgendamento);

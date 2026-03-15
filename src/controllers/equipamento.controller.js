@@ -115,8 +115,9 @@ const criar = async (req, res) => {
       include: { unidade: true },
     });
 
-    const qrData = JSON.stringify({ id: equipamento.id, serial: serialNumber, empresa: empresaId });
-    const qrCode = await QRCode.toDataURL(qrData);
+    const frontendUrl = process.env.FRONTEND_URL || 'https://nttdevicecontrol.web.app'
+    const qrData = `${frontendUrl}/equipamentos/${equipamento.id}`
+    const qrCode = await QRCode.toDataURL(qrData)
     const atualizado = await prisma.equipamento.update({
       where: { id: equipamento.id },
       data: { qrCode },
@@ -277,4 +278,22 @@ const qrcode = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar, atualizar, atualizarChecklist, atualizarAgendamento, deletar, qrcode };
+const regenerarQrCodes = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId
+    const frontendUrl = process.env.FRONTEND_URL || 'https://nttdevicecontrol.web.app'
+    const equipamentos = await prisma.equipamento.findMany({ where: { empresaId }, select: { id: true } })
+    let count = 0
+    for (const eq of equipamentos) {
+      const qrCode = await QRCode.toDataURL(`${frontendUrl}/equipamentos/${eq.id}`)
+      await prisma.equipamento.update({ where: { id: eq.id }, data: { qrCode } })
+      count++
+    }
+    res.json({ message: `${count} QR Codes regenerados com sucesso` })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Erro ao regenerar QR Codes' })
+  }
+}
+
+module.exports = { listar, buscarPorId, criar, atualizar, atualizarChecklist, atualizarAgendamento, deletar, qrcode, regenerarQrCodes };
