@@ -106,7 +106,7 @@ const getDashboard = async (req, res) => {
 
     // Atividades recentes (últimas vinculações)
     const atividadesRecentes = await prisma.vinculacao.findMany({
-      where: { empresaId },
+      where: { usuario: { empresaId } },
       orderBy: { createdAt: 'desc' },
       take: 8,
       include: {
