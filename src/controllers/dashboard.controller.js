@@ -66,7 +66,7 @@ const getDashboard = async (req, res) => {
         where: {
           empresaId,
           ativo: true,
-          vinculacoes: { none: { ativo: true } },
+          vinculacoes: { none: { ativa: true } },
         },
       }),
       // Equipamentos em preparação há mais de 3 dias
