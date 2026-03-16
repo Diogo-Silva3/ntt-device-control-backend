@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 
 const listar = async (req, res) => {
   try {
-    const { busca, unidadeId, page = 1, limit = 50, comAcesso, semAcesso } = req.query;
+    const { busca, unidadeId, page = 1, limit = 50, comAcesso, semAcesso, role } = req.query;
     const empresaId = req.usuario.empresaId;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -11,9 +11,8 @@ const listar = async (req, res) => {
       empresaId,
       ativo: true,
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
-      // comAcesso = usuários do sistema (tem senha definida ou role ADMIN)
+      ...(role && { role }),
       ...(comAcesso === 'true' && { senha: { not: null } }),
-      // semAcesso = colaboradores importados (sem senha)
       ...(semAcesso === 'true' && { senha: null }),
       ...(busca && {
         OR: [

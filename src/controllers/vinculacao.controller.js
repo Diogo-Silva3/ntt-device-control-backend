@@ -54,7 +54,7 @@ const criar = async (req, res) => {
         tecnicoId: parseInt(tecnicoId),
         observacao,
         numeroChamado,
-        tipoOperacao: tipoOperacao || 'Máquina nova / Usuário novo',
+        tipoOperacao: tipoOperacao || 'Máquina nova e usuário novo',
         softwaresDe,
         softwaresPara,
         dataAgendamento: dataAgendamento ? new Date(dataAgendamento) : null,

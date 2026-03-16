@@ -102,7 +102,7 @@ model Vinculacao {
   ativa           Boolean     @default(true)
   observacao      String?
   numeroChamado   String?     @map("numero_chamado")
-  tipoOperacao    String?     @default("Máquina nova / Usuário novo") @map("tipo_operacao")
+  tipoOperacao    String?     @default("Máquina nova e usuário novo") @map("tipo_operacao")
   softwaresDe     String?     @map("softwares_de")
   softwaresPara   String?     @map("softwares_para")
   dataAgendamento DateTime?   @map("data_agendamento")
