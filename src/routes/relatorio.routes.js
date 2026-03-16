@@ -15,5 +15,7 @@ router.get('/colaboradores-sem-equipamento', ctrl.getColaboradoresSemEquipamento
 router.get('/equipamentos-sem-colaborador', ctrl.getEquipamentosSemColaborador);
 router.get('/exportar/pdf', ctrl.exportarPDF);
 router.get('/exportar/excel', ctrl.exportarExcel);
+router.get('/improdutivos', ctrl.getImprodutivos);
+router.get('/exportar/improdutivos', ctrl.exportarImprodutivos);
 
 module.exports = router;

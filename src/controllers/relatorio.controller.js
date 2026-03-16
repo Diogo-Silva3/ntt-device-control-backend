@@ -510,5 +510,199 @@ const getEquipamentosSemColaborador = async (req, res) => {
   }
 };
 
-module.exports = { getEquipamentosPorUnidade, getEquipamentosDisponiveis, exportarPDF, exportarExcel, getRelatorioPreparacao, getAgendamentosSemana, getTodosColaboradores, getVinculacoesAtivas, getEquipamentosPorUnidadeResumo, getColaboradoresSemEquipamento, getEquipamentosSemColaborador };
+// exportarImprodutivos definido abaixo
 
+
+const getImprodutivos = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+
+    // Atribuições com não comparecimento ou reagendamentos
+    const atribuicoes = await prisma.vinculacao.findMany({
+      where: {
+        usuario: { empresaId },
+        OR: [
+          { statusEntrega: 'NAO_COMPARECEU' },
+          { reagendamentos: { not: null } },
+        ],
+      },
+      include: {
+        usuario: { select: { nome: true, funcao: true, email: true, unidade: { select: { nome: true } } } },
+        equipamento: { select: { marca: true, modelo: true, serialNumber: true } },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { dataAgendamento: 'asc' },
+    });
+
+    const resultado = atribuicoes.map(v => {
+      const reagendamentos = v.reagendamentos ? JSON.parse(v.reagendamentos) : [];
+      return {
+        id: v.id,
+        colaborador: v.usuario?.nome,
+        funcao: v.usuario?.funcao,
+        email: v.usuario?.email,
+        unidade: v.usuario?.unidade?.nome,
+        equipamento: [v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' '),
+        serial: v.equipamento?.serialNumber,
+        tecnico: v.tecnico?.nome,
+        dataAgendamento: v.dataAgendamento,
+        statusEntrega: v.statusEntrega,
+        totalReagendamentos: reagendamentos.length,
+        reagendamentos,
+        ativa: v.ativa,
+      };
+    });
+
+    res.json(resultado);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar relatório de improdutivos' });
+  }
+};
+
+// Exportar PDF de improdutivos
+const exportarImprodutivos = async (req, res) => {
+  try {
+    const { formato = 'pdf' } = req.query;
+    const empresaId = req.usuario.empresaId;
+    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+
+    const atribuicoes = await prisma.vinculacao.findMany({
+      where: {
+        usuario: { empresaId },
+        OR: [
+          { statusEntrega: 'NAO_COMPARECEU' },
+          { reagendamentos: { not: null } },
+        ],
+      },
+      include: {
+        usuario: { select: { nome: true, funcao: true, unidade: { select: { nome: true } } } },
+        equipamento: { select: { marca: true, modelo: true, serialNumber: true } },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { dataAgendamento: 'asc' },
+    });
+
+    if (formato === 'excel') {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Improdutivos');
+      sheet.columns = [
+        { header: 'Colaborador', key: 'colaborador', width: 28 },
+        { header: 'Unidade', key: 'unidade', width: 20 },
+        { header: 'Equipamento', key: 'equipamento', width: 25 },
+        { header: 'Serial', key: 'serial', width: 18 },
+        { header: 'Técnico', key: 'tecnico', width: 20 },
+        { header: 'Agendado para', key: 'agendamento', width: 18 },
+        { header: 'Status', key: 'status', width: 18 },
+        { header: 'Reagendamentos', key: 'reagendamentos', width: 15 },
+      ];
+      sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+      sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+      atribuicoes.forEach(v => {
+        const reagendamentos = v.reagendamentos ? JSON.parse(v.reagendamentos) : [];
+        const statusLabel = v.statusEntrega === 'NAO_COMPARECEU' ? 'Não compareceu' : v.statusEntrega === 'ENTREGUE' ? 'Entregue' : 'Pendente';
+        sheet.addRow({
+          colaborador: v.usuario?.nome || '',
+          unidade: v.usuario?.unidade?.nome || '',
+          equipamento: [v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' '),
+          serial: v.equipamento?.serialNumber || '',
+          tecnico: v.tecnico?.nome || '',
+          agendamento: v.dataAgendamento ? new Date(v.dataAgendamento).toLocaleDateString('pt-BR') : '—',
+          status: statusLabel,
+          reagendamentos: reagendamentos.length,
+        });
+      });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=improdutivos-${Date.now()}.xlsx`);
+      await workbook.xlsx.write(res);
+      return res.end();
+    }
+
+    // PDF
+    const trunc = (s, n = 28) => String(s || '-').substring(0, n);
+    const headers = ['Colaborador', 'Unidade', 'Equipamento', 'Técnico', 'Agendado', 'Status', 'Reagend.'];
+    const colWidths = [110, 80, 100, 80, 70, 90, 50];
+    const rows = atribuicoes.map(v => {
+      const reagendamentos = v.reagendamentos ? JSON.parse(v.reagendamentos) : [];
+      const statusLabel = v.statusEntrega === 'NAO_COMPARECEU' ? 'Não compareceu' : v.statusEntrega === 'ENTREGUE' ? 'Entregue' : 'Pendente';
+      return [
+        trunc(v.usuario?.nome, 20),
+        trunc(v.usuario?.unidade?.nome, 16),
+        trunc([v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' '), 18),
+        trunc(v.tecnico?.nome, 16),
+        v.dataAgendamento ? new Date(v.dataAgendamento).toLocaleDateString('pt-BR') : '—',
+        statusLabel,
+        String(reagendamentos.length),
+      ];
+    });
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=improdutivos-${Date.now()}.pdf`);
+    doc.pipe(res);
+
+    const pageWidth = 515;
+    const logoNTT = path.join(__dirname, '../../logo-ntt.png');
+    const logoWick = path.join(__dirname, '../../logo-wickbold.png');
+
+    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 28, { height: 32, fit: [110, 32] });
+    if (fs.existsSync(logoWick)) doc.image(logoWick, 440, 28, { height: 32, fit: [110, 32] });
+    doc.moveTo(40, 70).lineTo(555, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
+    doc.y = 82;
+    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text('Relatório de Improdutivos — Tech Refresh', { align: 'center' });
+    doc.fontSize(8).font('Helvetica').fillColor('#64748b')
+      .text(`${empresa?.nome || ''} · Gerado em ${new Date().toLocaleString('pt-BR')} · Total: ${rows.length} registros`, { align: 'center' });
+    doc.moveDown(0.8);
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    doc.moveDown(0.5);
+
+    const tableTop = doc.y;
+    doc.rect(40, tableTop, pageWidth, 16).fill('#1e40af');
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor('#ffffff');
+    let xPos = 40;
+    headers.forEach((h, i) => {
+      doc.text(h.toUpperCase(), xPos + 4, tableTop + 4, { width: colWidths[i] - 4, lineBreak: false });
+      xPos += colWidths[i];
+    });
+    doc.y = tableTop + 18;
+
+    doc.fontSize(7.5).font('Helvetica');
+    rows.forEach((row, idx) => {
+      if (doc.y > 770) { doc.addPage(); }
+      const rowY = doc.y;
+      if (idx % 2 === 0) doc.rect(40, rowY, pageWidth, 14).fill('#f8fafc');
+      doc.fillColor('#334155');
+      let x = 40;
+      row.forEach((cell, i) => {
+        doc.text(String(cell), x + 4, rowY + 3, { width: colWidths[i] - 6, lineBreak: false });
+        x += colWidths[i];
+      });
+      doc.moveTo(40, rowY + 14).lineTo(555, rowY + 14).strokeColor('#f1f5f9').lineWidth(0.3).stroke();
+      doc.y = rowY + 15;
+    });
+
+    if (rows.length === 0) {
+      doc.moveDown(1);
+      doc.fontSize(9).fillColor('#94a3b8').text('Nenhum registro encontrado.', { align: 'center' });
+    }
+
+    doc.moveDown(1);
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    doc.moveDown(0.5);
+    doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
+      .text('NTT Device Control · Tech Refresh · Documento gerado automaticamente', { align: 'center' });
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar relatório de improdutivos' });
+  }
+};
+
+module.exports = {
+  getEquipamentosPorUnidade, getEquipamentosDisponiveis, exportarPDF, exportarExcel,
+  getRelatorioPreparacao, getAgendamentosSemana, getTodosColaboradores, getVinculacoesAtivas,
+  getEquipamentosPorUnidadeResumo, getColaboradoresSemEquipamento, getEquipamentosSemColaborador,
+  getImprodutivos, exportarImprodutivos,
+};

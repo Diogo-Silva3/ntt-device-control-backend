@@ -57,6 +57,7 @@ model Usuario {
   historicos           Historico[]
   chamados             Chamado[]
   equipamentosTecnico  Equipamento[] @relation("TecnicoEquipamentos")
+  atribuicoesTecnico   Vinculacao[]  @relation("TecnicoAtribuicoes")
 
   @@map("usuarios")
 }
@@ -92,16 +93,25 @@ model Equipamento {
 }
 
 model Vinculacao {
-  id            Int         @id @default(autoincrement())
-  usuarioId     Int         @map("usuario_id")
-  equipamentoId Int         @map("equipamento_id")
-  dataInicio    DateTime    @default(now()) @map("data_inicio")
-  dataFim       DateTime?   @map("data_fim")
-  ativa         Boolean     @default(true)
-  observacao    String?
-  usuario       Usuario     @relation(fields: [usuarioId], references: [id])
-  equipamento   Equipamento @relation(fields: [equipamentoId], references: [id])
-  createdAt     DateTime    @default(now()) @map("created_at")
+  id              Int         @id @default(autoincrement())
+  usuarioId       Int         @map("usuario_id")
+  equipamentoId   Int         @map("equipamento_id")
+  tecnicoId       Int?        @map("tecnico_id")
+  dataInicio      DateTime    @default(now()) @map("data_inicio")
+  dataFim         DateTime?   @map("data_fim")
+  ativa           Boolean     @default(true)
+  observacao      String?
+  numeroChamado   String?     @map("numero_chamado")
+  tipoOperacao    String?     @default("Máquina nova / Usuário novo") @map("tipo_operacao")
+  softwaresDe     String?     @map("softwares_de")
+  softwaresPara   String?     @map("softwares_para")
+  dataAgendamento DateTime?   @map("data_agendamento")
+  reagendamentos  String?
+  statusEntrega   String?     @default("PENDENTE") @map("status_entrega")
+  usuario         Usuario     @relation(fields: [usuarioId], references: [id])
+  equipamento     Equipamento @relation(fields: [equipamentoId], references: [id])
+  tecnico         Usuario?    @relation("TecnicoAtribuicoes", fields: [tecnicoId], references: [id])
+  createdAt       DateTime    @default(now()) @map("created_at")
 
   @@map("vinculacoes")
 }

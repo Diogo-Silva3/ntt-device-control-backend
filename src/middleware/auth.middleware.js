@@ -34,4 +34,8 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, adminMiddleware };
+// Técnico pode acessar, mas não pode modificar dados sensíveis
+// Usado para rotas que técnico NÃO pode acessar
+const apenasAdminMiddleware = adminMiddleware;
+
+module.exports = { authMiddleware, adminMiddleware, apenasAdminMiddleware };
