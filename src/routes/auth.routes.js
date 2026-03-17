@@ -10,7 +10,7 @@ router.get('/me', authMiddleware, me);
 router.get('/dominios', authMiddleware, adminMiddleware, (req, res) => {
   const dominios = process.env.ALLOWED_DOMAINS
     ? process.env.ALLOWED_DOMAINS.split(',').map(d => d.trim())
-    : ['@grupobimbo.com', '@global.nttdata.com', '@gbsupport.net'];
+    : ['@grupobimbo.com', '@global.nttdata.com', '@gbsupport.net', '@nttdata.com'];
   res.json({ dominios });
 });
 
