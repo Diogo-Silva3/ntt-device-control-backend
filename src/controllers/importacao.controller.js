@@ -125,7 +125,7 @@ const importarEquipamentos = async (req, res) => {
     );
 
     const colaboradoresExistentes = await prisma.usuario.findMany({
-      where: { empresaId, senha: null, ativo: true },
+      where: { empresaId, role: 'COLABORADOR', ativo: true },
       select: { id: true, nome: true },
     });
     const colaboradorMap = new Map(colaboradoresExistentes.map(c => [c.nome.toLowerCase(), c]));
