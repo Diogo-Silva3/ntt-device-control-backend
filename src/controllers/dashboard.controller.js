@@ -115,9 +115,7 @@ const getDashboard = async (req, res) => {
       }),
     ]);
 
-    const maquinasFaltamEntregar = maquinasAgendadas - maquinasEntregues < 0
-      ? 0
-      : totalProjeto - maquinasEntregues;
+    const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
 
     // Entregas por mês (últimos 6 meses)
     const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);

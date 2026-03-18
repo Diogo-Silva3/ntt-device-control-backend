@@ -15,6 +15,7 @@
     "@prisma/client": "^5.7.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
+    "docx": "^9.6.1",
     "dotenv": "^16.3.1",
     "excel4node": "^1.8.2",
     "exceljs": "^4.4.0",
