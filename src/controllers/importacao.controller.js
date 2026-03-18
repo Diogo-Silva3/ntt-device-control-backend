@@ -233,7 +233,7 @@ const importarEquipamentos = async (req, res) => {
           const unidade = String(row['Unidade'] || row['UNIDADE'] || row['Local'] || '').trim();
           const patrimonio = String(row['Patrimônio'] || row['Patrimonio'] || row['PATRIMÔNIO'] || row['patrimonio'] || '').trim();
           const colaborador = String(row['Colaborador'] || row['COLABORADOR'] || row['Usuário'] || row['Usuario'] || '').trim();
-          const chamado = String(row['Chamado'] || row['N° Chamado'] || row['Numero Chamado'] || row['chamado'] || '').trim();
+          const chamado = String(row['Número do Chamado'] || row['Numero do Chamado'] || row['Chamado'] || row['N° Chamado'] || row['Numero Chamado'] || row['chamado'] || '').trim();
 
           if (!tipo && !marca && !modelo && !serial) continue;
 
