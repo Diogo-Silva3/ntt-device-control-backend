@@ -97,20 +97,20 @@ const getDashboard = async (req, res) => {
       }),
       // Total do projeto (todos exceto descartados)
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      // Agendadas (com data de agendamento e ainda não entregues)
-      prisma.vinculacao.count({
+      // Agendadas (equipamentos com statusProcesso = Agendado para Entrega)
+      prisma.equipamento.count({
         where: {
-          ativa: true,
-          dataAgendamento: { not: null },
-          statusEntrega: { in: ['PENDENTE', 'NAO_COMPARECEU'] },
-          usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: 'Agendado para Entrega',
         },
       }),
-      // Entregues (statusEntrega = ENTREGUE)
-      prisma.vinculacao.count({
+      // Entregues (equipamentos com statusProcesso = Entregue ao Usuário ou Em Uso)
+      prisma.equipamento.count({
         where: {
-          statusEntrega: 'ENTREGUE',
-          usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
     ]);
