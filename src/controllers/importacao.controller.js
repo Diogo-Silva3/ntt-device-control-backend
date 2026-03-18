@@ -186,9 +186,10 @@ const importarEquipamentos = async (req, res) => {
       });
       equipId = equip.id;
 
-      const qrData = JSON.stringify({ id: equip.id, serial: serialNumber, empresa: empresaId });
-      const qrCode = await QRCode.toDataURL(qrData);
-      await prisma.equipamento.update({ where: { id: equip.id }, data: { qrCode } });
+      // QR Code gerado em background (não bloqueia a importação)
+      QRCode.toDataURL(JSON.stringify({ id: equip.id, serial: serialNumber, empresa: empresaId }))
+        .then(qrCode => prisma.equipamento.update({ where: { id: equip.id }, data: { qrCode } }))
+        .catch(() => {});
 
       // Se tem colaborador e status EM_USO, cria vinculação
       if (nomeColaborador && status === 'EM_USO') {
