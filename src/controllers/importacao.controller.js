@@ -53,14 +53,14 @@ const importarUsuarios = async (req, res) => {
           if (email) {
             const existente = await prisma.usuario.findFirst({ where: { email, empresaId } });
             if (existente) {
-              await prisma.usuario.update({ where: { id: existente.id }, data: { nome, funcao, unidadeId } });
+              await prisma.usuario.update({ where: { id: existente.id }, data: { nome, funcao, unidadeId, role: 'COLABORADOR' } });
               atualizados++;
               continue;
             }
           }
 
           await prisma.usuario.create({
-            data: { nome, email: email || null, funcao, unidadeId, empresaId },
+            data: { nome, email: email || null, funcao, unidadeId, empresaId, role: 'COLABORADOR' },
           });
           criados++;
         } catch (e) {
@@ -92,14 +92,14 @@ const importarUsuarios = async (req, res) => {
           if (email && email.includes('@')) {
             const existente = await prisma.usuario.findFirst({ where: { email, empresaId } });
             if (existente) {
-              await prisma.usuario.update({ where: { id: existente.id }, data: { nome, funcao, unidadeId } });
+              await prisma.usuario.update({ where: { id: existente.id }, data: { nome, funcao, unidadeId, role: 'COLABORADOR' } });
               atualizados++;
               continue;
             }
           }
 
           await prisma.usuario.create({
-            data: { nome, email: (email && email.includes('@')) ? email : null, funcao, unidadeId, empresaId },
+            data: { nome, email: (email && email.includes('@')) ? email : null, funcao, unidadeId, empresaId, role: 'COLABORADOR' },
           });
           criados++;
         } catch (e) {

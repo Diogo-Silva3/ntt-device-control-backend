@@ -105,12 +105,14 @@ const getDashboard = async (req, res) => {
           statusProcesso: 'Agendado para Entrega',
         },
       }),
-      // Entregues (equipamentos com statusProcesso = Entregue ao Usuário ou Em Uso)
+      // Entregues (statusProcesso = Entregue ao Usuário/Em Uso OU status = EM_USO)
       prisma.equipamento.count({
         where: {
           ...whereEq,
-          status: { not: 'DESCARTADO' },
-          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
+          OR: [
+            { statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } },
+            { status: 'EM_USO' },
+          ],
         },
       }),
     ]);
