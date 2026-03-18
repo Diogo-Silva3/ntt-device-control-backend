@@ -2,44 +2,33 @@ const XLSX = require('xlsx');
 const prisma = require('../config/prisma');
 const QRCode = require('qrcode');
 
-// Lê planilha e retorna linhas não vazias (com ou sem cabeçalho)
 function lerPlanilha(buffer) {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  // Tenta com cabeçalho primeiro
   const comHeader = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-  // Sem cabeçalho (array de arrays)
   const semHeader = XLSX.utils.sheet_to_json(sheet, { defval: '', header: 1 });
-
-  // Se a primeira linha parece ser cabeçalho (tem texto reconhecível), usa com header
   const primeiraLinha = semHeader[0] || [];
   const temHeader = primeiraLinha.some(c =>
     /nome|serial|marca|modelo|tipo|unidade|email|função|funcao|cargo/i.test(String(c))
   );
-
   return { comHeader, semHeader, temHeader };
 }
 
 const importarUsuarios = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
-
     const empresaId = req.usuario.empresaId;
     const { comHeader, semHeader, temHeader } = lerPlanilha(req.file.buffer);
-
     let criados = 0, atualizados = 0, erros = [];
 
     if (temHeader) {
-      // Planilha com cabeçalho — mapeia por nome de coluna
       for (const row of comHeader) {
         try {
           const nome = String(row['Nome'] || row['NOME'] || row['nome'] || '').trim();
           const funcao = String(row['Nome Funcão'] || row['Função'] || row['FUNÇÃO'] || row['Cargo'] || row['CARGO'] || row['funcao'] || '').trim();
           const email = String(row['Email'] || row['EMAIL'] || row['E-mail'] || row['email'] || '').trim();
           const nomeUnidade = String(row['Unidade'] || row['UNIDADE'] || row['Local'] || row['LOCAL'] || '').trim();
-
           if (!nome) continue;
-
           let unidadeId = null;
           if (nomeUnidade) {
             const unidade = await prisma.unidade.upsert({
@@ -49,7 +38,6 @@ const importarUsuarios = async (req, res) => {
             });
             unidadeId = unidade.id;
           }
-
           if (email) {
             const existente = await prisma.usuario.findFirst({ where: { email, empresaId } });
             if (existente) {
@@ -58,7 +46,6 @@ const importarUsuarios = async (req, res) => {
               continue;
             }
           }
-
           await prisma.usuario.create({
             data: { nome, email: email || null, funcao, unidadeId, empresaId, role: 'COLABORADOR' },
           });
@@ -68,7 +55,6 @@ const importarUsuarios = async (req, res) => {
         }
       }
     } else {
-      // Sem cabeçalho — tenta mapear por posição
       const linhasValidas = semHeader.filter(r => r.some(c => String(c).trim() !== ''));
       for (const row of linhasValidas) {
         try {
@@ -76,9 +62,7 @@ const importarUsuarios = async (req, res) => {
           const funcao = String(row[1] || '').trim();
           const nomeUnidade = String(row[7] || row[3] || '').trim();
           const email = String(row[8] || row[2] || '').trim();
-
           if (!nome) continue;
-
           let unidadeId = null;
           if (nomeUnidade) {
             const unidade = await prisma.unidade.upsert({
@@ -88,7 +72,6 @@ const importarUsuarios = async (req, res) => {
             });
             unidadeId = unidade.id;
           }
-
           if (email && email.includes('@')) {
             const existente = await prisma.usuario.findFirst({ where: { email, empresaId } });
             if (existente) {
@@ -97,7 +80,6 @@ const importarUsuarios = async (req, res) => {
               continue;
             }
           }
-
           await prisma.usuario.create({
             data: { nome, email: (email && email.includes('@')) ? email : null, funcao, unidadeId, empresaId, role: 'COLABORADOR' },
           });
@@ -118,10 +100,8 @@ const importarUsuarios = async (req, res) => {
 const importarEquipamentos = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
-
     const empresaId = req.usuario.empresaId;
     const { comHeader, semHeader, temHeader } = lerPlanilha(req.file.buffer);
-
     let criados = 0, atualizados = 0, erros = [];
 
     const statusMap = {
@@ -132,85 +112,50 @@ const importarEquipamentos = async (req, res) => {
       'NOVO': 'DISPONIVEL', 'NEW': 'DISPONIVEL',
     };
 
-    const processarLinha = async (tipo, marca, modelo, serialNumber, statusRaw, nomeUnidade, patrimonio, nomeColaborador, numeroChamado) => {
-      const status = statusMap[String(statusRaw).trim().toUpperCase()] || 'DISPONIVEL';
+    // Pré-carrega dados em memória para evitar queries repetidas por linha
+    const unidadesExistentes = await prisma.unidade.findMany({ where: { empresaId } });
+    const unidadeMap = new Map(unidadesExistentes.map(u => [u.nome.toLowerCase(), u]));
 
-      let unidadeId = null;
-      if (nomeUnidade && nomeUnidade.trim()) {
-        const unidade = await prisma.unidade.upsert({
-          where: { nome_empresaId: { nome: nomeUnidade.trim(), empresaId } },
-          update: {},
-          create: { nome: nomeUnidade.trim(), empresaId },
-        });
-        unidadeId = unidade.id;
-      }
+    const equipamentosExistentes = await prisma.equipamento.findMany({
+      where: { empresaId },
+      select: { id: true, serialNumber: true, tipo: true, marca: true, modelo: true },
+    });
+    const equipMap = new Map(
+      equipamentosExistentes.filter(e => e.serialNumber).map(e => [e.serialNumber, e])
+    );
 
-      let equipId = null;
+    const colaboradoresExistentes = await prisma.usuario.findMany({
+      where: { empresaId, senha: null, ativo: true },
+      select: { id: true, nome: true },
+    });
+    const colaboradorMap = new Map(colaboradoresExistentes.map(c => [c.nome.toLowerCase(), c]));
 
-      if (serialNumber) {
-        const existente = await prisma.equipamento.findFirst({ where: { serialNumber, empresaId } });
-        if (existente) {
-          await prisma.equipamento.update({
-            where: { id: existente.id },
-            data: {
-              tipo: tipo || existente.tipo,
-              marca: marca || existente.marca,
-              modelo: modelo || existente.modelo,
-              status,
-              unidadeId,
-              ...(patrimonio && { patrimonio }),
-            },
-          });
-          equipId = existente.id;
+    const vinculacoesAtivas = await prisma.vinculacao.findMany({
+      where: { ativa: true, equipamento: { empresaId } },
+      select: { equipamentoId: true },
+    });
+    const vinculadosSet = new Set(vinculacoesAtivas.map(v => v.equipamentoId));
 
-          // Se tem colaborador e status EM_USO, cria vinculação se não existir
-          if (nomeColaborador && status === 'EM_USO') {
-            await vincularColaborador(equipId, nomeColaborador, unidadeId, numeroChamado, empresaId);
-          }
-
-          return 'atualizado';
-        }
-      }
-
-      const equip = await prisma.equipamento.create({
-        data: {
-          tipo: tipo || null,
-          marca: marca || null,
-          modelo: modelo || null,
-          serialNumber: serialNumber || null,
-          status,
-          unidadeId,
-          empresaId,
-          ...(patrimonio && { patrimonio }),
-        },
-      });
-      equipId = equip.id;
-
-      // QR Code gerado em background (não bloqueia a importação)
-      QRCode.toDataURL(JSON.stringify({ id: equip.id, serial: serialNumber, empresa: empresaId }))
-        .then(qrCode => prisma.equipamento.update({ where: { id: equip.id }, data: { qrCode } }))
-        .catch(() => {});
-
-      // Se tem colaborador e status EM_USO, cria vinculação
-      if (nomeColaborador && status === 'EM_USO') {
-        await vincularColaborador(equipId, nomeColaborador, unidadeId, numeroChamado, empresaId);
-      }
-
-      return 'criado';
+    const getOrCreateUnidade = async (nomeUnidade) => {
+      if (!nomeUnidade || !nomeUnidade.trim()) return null;
+      const key = nomeUnidade.trim().toLowerCase();
+      if (unidadeMap.has(key)) return unidadeMap.get(key).id;
+      const nova = await prisma.unidade.create({ data: { nome: nomeUnidade.trim(), empresaId } });
+      unidadeMap.set(key, nova);
+      return nova.id;
     };
 
-    // Vincula colaborador ao equipamento se ainda não houver vinculação ativa
-    const vincularColaborador = async (equipamentoId, nomeColaborador, unidadeId, numeroChamado, empresaId) => {
+    const vincularColaborador = async (equipamentoId, nomeColaborador, numeroChamado) => {
       try {
-        const jaVinculado = await prisma.vinculacao.findFirst({ where: { equipamentoId, ativa: true } });
-        if (jaVinculado) return;
-
-        // Busca colaborador pelo nome (sem acesso ao sistema)
-        const colaborador = await prisma.usuario.findFirst({
-          where: { nome: { contains: nomeColaborador.trim() }, empresaId, senha: null, ativo: true },
-        });
+        if (vinculadosSet.has(equipamentoId)) return;
+        const key = nomeColaborador.trim().toLowerCase();
+        let colaborador = colaboradorMap.get(key);
+        if (!colaborador) {
+          for (const [k, v] of colaboradorMap) {
+            if (k.includes(key) || key.includes(k)) { colaborador = v; break; }
+          }
+        }
         if (!colaborador) return;
-
         await prisma.vinculacao.create({
           data: {
             usuarioId: colaborador.id,
@@ -220,50 +165,102 @@ const importarEquipamentos = async (req, res) => {
             ativa: true,
           },
         });
+        vinculadosSet.add(equipamentoId);
       } catch (_) {}
     };
 
-    if (temHeader) {
-      for (const row of comHeader) {
+    const normalizarLinhas = () => {
+      if (temHeader) {
+        return comHeader.map(row => ({
+          tipo: String(row['Tipo'] || row['TIPO'] || row['tipo'] || row['Categoria'] || '').trim(),
+          marca: String(row['Marca'] || row['MARCA'] || row['marca'] || '').trim(),
+          modelo: String(row['Modelo'] || row['MODELO'] || row['modelo'] || '').trim(),
+          serial: String(row['Serial'] || row['SERIAL'] || row['Serial Number'] || row['Número de Série'] || row['N° Serie'] || row['serial_number'] || '').trim(),
+          statusRaw: String(row['Status'] || row['STATUS'] || 'Novo').trim(),
+          unidade: String(row['Unidade'] || row['UNIDADE'] || row['Local'] || '').trim(),
+          patrimonio: String(row['Patrimônio'] || row['Patrimonio'] || row['PATRIMÔNIO'] || row['patrimonio'] || '').trim(),
+          colaborador: String(row['Colaborador'] || row['COLABORADOR'] || row['Usuário'] || row['Usuario'] || '').trim(),
+          chamado: String(row['Número do Chamado'] || row['Numero do Chamado'] || row['Chamado'] || row['N° Chamado'] || row['Numero Chamado'] || row['chamado'] || '').trim(),
+        }));
+      } else {
+        return semHeader
+          .filter(r => r.some(c => String(c).trim() !== ''))
+          .map(row => ({
+            tipo: String(row[0] || '').trim(),
+            marca: String(row[1] || '').trim(),
+            modelo: String(row[2] || '').trim(),
+            serial: String(row[3] || '').trim(),
+            statusRaw: String(row[4] || 'Novo').trim(),
+            unidade: String(row[5] || '').trim(),
+            patrimonio: '',
+            colaborador: '',
+            chamado: '',
+          }));
+      }
+    };
+
+    const linhas = normalizarLinhas();
+
+    // Processa em lotes paralelos de 20 para reduzir tempo total
+    const BATCH = 20;
+    for (let i = 0; i < linhas.length; i += BATCH) {
+      const lote = linhas.slice(i, i + BATCH);
+      await Promise.all(lote.map(async (row) => {
         try {
-          const tipo = String(row['Tipo'] || row['TIPO'] || row['tipo'] || row['Categoria'] || '').trim();
-          const marca = String(row['Marca'] || row['MARCA'] || row['marca'] || '').trim();
-          const modelo = String(row['Modelo'] || row['MODELO'] || row['modelo'] || '').trim();
-          const serial = String(row['Serial'] || row['SERIAL'] || row['Serial Number'] || row['Número de Série'] || row['N° Serie'] || row['serial_number'] || '').trim();
-          const statusRaw = String(row['Status'] || row['STATUS'] || 'Novo').trim();
-          const unidade = String(row['Unidade'] || row['UNIDADE'] || row['Local'] || '').trim();
-          const patrimonio = String(row['Patrimônio'] || row['Patrimonio'] || row['PATRIMÔNIO'] || row['patrimonio'] || '').trim();
-          const colaborador = String(row['Colaborador'] || row['COLABORADOR'] || row['Usuário'] || row['Usuario'] || '').trim();
-          const chamado = String(row['Número do Chamado'] || row['Numero do Chamado'] || row['Chamado'] || row['N° Chamado'] || row['Numero Chamado'] || row['chamado'] || '').trim();
+          const { tipo, marca, modelo, serial, statusRaw, unidade, patrimonio, colaborador, chamado } = row;
+          if (!tipo && !marca && !modelo && !serial) return;
 
-          if (!tipo && !marca && !modelo && !serial) continue;
+          const status = statusMap[statusRaw.toUpperCase()] || 'DISPONIVEL';
+          const unidadeId = await getOrCreateUnidade(unidade);
 
-          const resultado = await processarLinha(tipo, marca, modelo, serial, statusRaw, unidade, patrimonio || null, colaborador || null, chamado || null);
-          resultado === 'criado' ? criados++ : atualizados++;
+          if (serial && equipMap.has(serial)) {
+            const existente = equipMap.get(serial);
+            await prisma.equipamento.update({
+              where: { id: existente.id },
+              data: {
+                tipo: tipo || existente.tipo,
+                marca: marca || existente.marca,
+                modelo: modelo || existente.modelo,
+                status,
+                unidadeId,
+                ...(patrimonio && { patrimonio }),
+              },
+            });
+            if (colaborador && status === 'EM_USO') {
+              await vincularColaborador(existente.id, colaborador, chamado || null);
+            }
+            atualizados++;
+            return;
+          }
+
+          const equip = await prisma.equipamento.create({
+            data: {
+              tipo: tipo || null,
+              marca: marca || null,
+              modelo: modelo || null,
+              serialNumber: serial || null,
+              status,
+              unidadeId,
+              empresaId,
+              ...(patrimonio && { patrimonio }),
+            },
+          });
+
+          if (serial) equipMap.set(serial, equip);
+
+          QRCode.toDataURL(JSON.stringify({ id: equip.id, serial, empresa: empresaId }))
+            .then(qrCode => prisma.equipamento.update({ where: { id: equip.id }, data: { qrCode } }))
+            .catch(() => {});
+
+          if (colaborador && status === 'EM_USO') {
+            await vincularColaborador(equip.id, colaborador, chamado || null);
+          }
+
+          criados++;
         } catch (e) {
           erros.push({ linha: JSON.stringify(row), erro: e.message });
         }
-      }
-    } else {
-      // Sem cabeçalho: [tipo, marca, modelo, serial, status, empresa/unidade]
-      const linhasValidas = semHeader.filter(r => r.some(c => String(c).trim() !== ''));
-      for (const row of linhasValidas) {
-        try {
-          const tipo = String(row[0] || '').trim();
-          const marca = String(row[1] || '').trim();
-          const modelo = String(row[2] || '').trim();
-          const serial = String(row[3] || '').trim();
-          const statusRaw = String(row[4] || 'Novo').trim();
-          const unidade = String(row[5] || '').trim();
-
-          if (!tipo && !marca && !modelo && !serial) continue;
-
-          const resultado = await processarLinha(tipo, marca, modelo, serial, statusRaw, unidade);
-          resultado === 'criado' ? criados++ : atualizados++;
-        } catch (e) {
-          erros.push({ linha: JSON.stringify(row), erro: e.message });
-        }
-      }
+      }));
     }
 
     res.json({ message: 'Importação concluída', criados, atualizados, erros: erros.length, detalhesErros: erros.slice(0, 10) });
@@ -277,7 +274,6 @@ const previewPlanilha = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado' });
     const { comHeader, semHeader, temHeader } = lerPlanilha(req.file.buffer);
-
     if (temHeader) {
       res.json({ colunas: comHeader.length > 0 ? Object.keys(comHeader[0]) : [], preview: comHeader.slice(0, 5), total: comHeader.length, temHeader: true });
     } else {
