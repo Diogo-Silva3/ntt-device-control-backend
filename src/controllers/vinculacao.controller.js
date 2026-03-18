@@ -8,7 +8,7 @@ const includeCompleto = {
 
 const listar = async (req, res) => {
   try {
-    const { ativa, usuarioId, equipamentoId } = req.query;
+    const { ativa, usuarioId, equipamentoId, statusEntrega } = req.query;
     const empresaId = req.usuario.empresaId;
 
     const vinculacoes = await prisma.vinculacao.findMany({
@@ -16,6 +16,7 @@ const listar = async (req, res) => {
         ...(ativa !== undefined && { ativa: ativa === 'true' }),
         ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
         ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
+        ...(statusEntrega && { statusEntrega }),
         usuario: { empresaId },
       },
       include: includeCompleto,
