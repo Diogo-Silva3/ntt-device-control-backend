@@ -159,6 +159,7 @@ const importarEquipamentos = async (req, res) => {
           equipamentoId,
           numeroChamado: numeroChamado || null,
           tipoOperacao: 'Importacao',
+          statusEntrega: 'ENTREGUE',
           ativa: true,
         },
       });
