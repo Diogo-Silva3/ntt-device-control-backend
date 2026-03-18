@@ -132,7 +132,7 @@ const importarEquipamentos = async (req, res) => {
       'NOVO': 'DISPONIVEL', 'NEW': 'DISPONIVEL',
     };
 
-    const processarLinha = async (tipo, marca, modelo, serialNumber, statusRaw, nomeUnidade) => {
+    const processarLinha = async (tipo, marca, modelo, serialNumber, statusRaw, nomeUnidade, patrimonio, nomeColaborador, numeroChamado) => {
       const status = statusMap[String(statusRaw).trim().toUpperCase()] || 'DISPONIVEL';
 
       let unidadeId = null;
@@ -145,26 +145,81 @@ const importarEquipamentos = async (req, res) => {
         unidadeId = unidade.id;
       }
 
+      let equipId = null;
+
       if (serialNumber) {
         const existente = await prisma.equipamento.findFirst({ where: { serialNumber, empresaId } });
         if (existente) {
           await prisma.equipamento.update({
             where: { id: existente.id },
-            data: { tipo: tipo || existente.tipo, marca: marca || existente.marca, modelo: modelo || existente.modelo, status, unidadeId },
+            data: {
+              tipo: tipo || existente.tipo,
+              marca: marca || existente.marca,
+              modelo: modelo || existente.modelo,
+              status,
+              unidadeId,
+              ...(patrimonio && { patrimonio }),
+            },
           });
+          equipId = existente.id;
+
+          // Se tem colaborador e status EM_USO, cria vinculação se não existir
+          if (nomeColaborador && status === 'EM_USO') {
+            await vincularColaborador(equipId, nomeColaborador, unidadeId, numeroChamado, empresaId);
+          }
+
           return 'atualizado';
         }
       }
 
       const equip = await prisma.equipamento.create({
-        data: { tipo: tipo || null, marca: marca || null, modelo: modelo || null, serialNumber: serialNumber || null, status, unidadeId, empresaId },
+        data: {
+          tipo: tipo || null,
+          marca: marca || null,
+          modelo: modelo || null,
+          serialNumber: serialNumber || null,
+          status,
+          unidadeId,
+          empresaId,
+          ...(patrimonio && { patrimonio }),
+        },
       });
+      equipId = equip.id;
 
       const qrData = JSON.stringify({ id: equip.id, serial: serialNumber, empresa: empresaId });
       const qrCode = await QRCode.toDataURL(qrData);
       await prisma.equipamento.update({ where: { id: equip.id }, data: { qrCode } });
 
+      // Se tem colaborador e status EM_USO, cria vinculação
+      if (nomeColaborador && status === 'EM_USO') {
+        await vincularColaborador(equipId, nomeColaborador, unidadeId, numeroChamado, empresaId);
+      }
+
       return 'criado';
+    };
+
+    // Vincula colaborador ao equipamento se ainda não houver vinculação ativa
+    const vincularColaborador = async (equipamentoId, nomeColaborador, unidadeId, numeroChamado, empresaId) => {
+      try {
+        const jaVinculado = await prisma.vinculacao.findFirst({ where: { equipamentoId, ativa: true } });
+        if (jaVinculado) return;
+
+        // Busca colaborador pelo nome (sem acesso ao sistema)
+        const colaborador = await prisma.usuario.findFirst({
+          where: { nome: { contains: nomeColaborador.trim() }, empresaId, senha: null, ativo: true },
+        });
+        if (!colaborador) return;
+
+        await prisma.vinculacao.create({
+          data: {
+            usuarioId: colaborador.id,
+            equipamentoId,
+            numeroChamado: numeroChamado || null,
+            tipoOperacao: 'Importação',
+            ativa: true,
+          },
+        });
+      } catch (_) {}
     };
 
     if (temHeader) {
@@ -176,10 +231,13 @@ const importarEquipamentos = async (req, res) => {
           const serial = String(row['Serial'] || row['SERIAL'] || row['Serial Number'] || row['Número de Série'] || row['N° Serie'] || row['serial_number'] || '').trim();
           const statusRaw = String(row['Status'] || row['STATUS'] || 'Novo').trim();
           const unidade = String(row['Unidade'] || row['UNIDADE'] || row['Local'] || '').trim();
+          const patrimonio = String(row['Patrimônio'] || row['Patrimonio'] || row['PATRIMÔNIO'] || row['patrimonio'] || '').trim();
+          const colaborador = String(row['Colaborador'] || row['COLABORADOR'] || row['Usuário'] || row['Usuario'] || '').trim();
+          const chamado = String(row['Chamado'] || row['N° Chamado'] || row['Numero Chamado'] || row['chamado'] || '').trim();
 
           if (!tipo && !marca && !modelo && !serial) continue;
 
-          const resultado = await processarLinha(tipo, marca, modelo, serial, statusRaw, unidade);
+          const resultado = await processarLinha(tipo, marca, modelo, serial, statusRaw, unidade, patrimonio || null, colaborador || null, chamado || null);
           resultado === 'criado' ? criados++ : atualizados++;
         } catch (e) {
           erros.push({ linha: JSON.stringify(row), erro: e.message });
