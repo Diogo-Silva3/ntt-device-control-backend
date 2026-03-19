@@ -4,7 +4,7 @@ const getDashboard = async (req, res) => {
   try {
     const empresaId = req.usuario.empresaId;
     const unidadeIdParam = req.query.unidadeId ? parseInt(req.query.unidadeId) : null;
-    const isAdmin = req.usuario.role === 'ADMIN';
+    const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
 
     // Técnico vê apenas sua unidade se não for admin
