@@ -28,12 +28,12 @@ const listar = async (req, res) => {
       ...(marca && { marca: { contains: marca } }),
       ...(busca && {
         OR: [
-          { marca: { contains: busca } },
-          { modelo: { contains: busca } },
-          { serialNumber: { contains: busca } },
-          { tipo: { contains: busca } },
-          { patrimonio: { contains: busca } },
-          { unidade: { nome: { contains: busca } } },
+          { marca: { contains: busca, mode: 'insensitive' } },
+          { modelo: { contains: busca, mode: 'insensitive' } },
+          { serialNumber: { contains: busca, mode: 'insensitive' } },
+          { tipo: { contains: busca, mode: 'insensitive' } },
+          { patrimonio: { contains: busca, mode: 'insensitive' } },
+          { unidade: { nome: { contains: busca, mode: 'insensitive' } } },
         ],
       }),
     };
