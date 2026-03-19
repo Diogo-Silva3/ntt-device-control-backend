@@ -12,6 +12,7 @@ const relatorioRoutes = require('./routes/relatorio.routes');
 const importacaoRoutes = require('./routes/importacao.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const chamadoRoutes = require('./routes/chamado.routes');
+const clienteRoutes = require('./routes/cliente.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 
@@ -37,7 +38,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id'],
 }));
 
 // Responde preflight OPTIONS em todas as rotas
@@ -59,6 +60,7 @@ app.use('/api/relatorios', relatorioRoutes);
 app.use('/api/importacao', importacaoRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chamados', chamadoRoutes);
+app.use('/api/clientes', clienteRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

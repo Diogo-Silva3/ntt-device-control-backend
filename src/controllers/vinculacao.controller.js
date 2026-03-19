@@ -97,7 +97,12 @@ const encerrar = async (req, res) => {
 
     const atualizada = await prisma.vinculacao.update({
       where: { id },
-      data: { ativa: false, dataFim: new Date() },
+      data: {
+        ativa: false,
+        dataFim: new Date(),
+        // Se ainda estava pendente ao encerrar, marca como entregue
+        ...(vinculacao.statusEntrega === 'PENDENTE' && { statusEntrega: 'ENTREGUE' }),
+      },
     });
 
     await prisma.equipamento.update({
