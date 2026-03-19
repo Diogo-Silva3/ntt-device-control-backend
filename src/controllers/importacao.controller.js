@@ -141,9 +141,26 @@ const importarEquipamentos = async (req, res) => {
     const buscarColaborador = (nomeColaborador) => {
       if (!nomeColaborador) return null;
       const key = norm(nomeColaborador);
+      // 1. match exato
       if (colaboradorMap.has(key)) return colaboradorMap.get(key);
+      // 2. um contém o outro
       for (const [k, v] of colaboradorMap) {
         if (k.includes(key) || key.includes(k)) return v;
+      }
+      // 3. busca por palavras: pelo menos 3 palavras do nome batem
+      const palavras = key.split(/\s+/).filter(p => p.length > 2);
+      let melhor = null, melhorScore = 0;
+      for (const [k, v] of colaboradorMap) {
+        const score = palavras.filter(p => k.includes(p)).length;
+        if (score >= 3 && score > melhorScore) { melhor = v; melhorScore = score; }
+      }
+      if (melhor) return melhor;
+      // 4. primeiro e último nome batem
+      if (palavras.length >= 2) {
+        const primeiro = palavras[0], ultimo = palavras[palavras.length - 1];
+        for (const [k, v] of colaboradorMap) {
+          if (k.includes(primeiro) && k.includes(ultimo)) return v;
+        }
       }
       return null;
     };
