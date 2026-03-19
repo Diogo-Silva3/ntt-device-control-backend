@@ -143,10 +143,10 @@ const getDashboard = async (req, res) => {
     const entregasPorMesRaw = await prisma.vinculacao.findMany({
       where: {
         statusEntrega: 'ENTREGUE',
-        updatedAt: { gte: seisMesesAtras },
-        equipamento: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+        createdAt: { gte: seisMesesAtras },
+        usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
       },
-      select: { updatedAt: true },
+      select: { createdAt: true },
     });
 
     const mesesMap = {};
@@ -157,7 +157,7 @@ const getDashboard = async (req, res) => {
       mesesMap[key] = { mes: label, entregas: 0 };
     }
     entregasPorMesRaw.forEach(e => {
-      const d = new Date(e.updatedAt);
+      const d = new Date(e.createdAt)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (mesesMap[key]) mesesMap[key].entregas++;
     });
