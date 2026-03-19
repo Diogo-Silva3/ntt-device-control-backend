@@ -77,7 +77,18 @@ const getDashboard = async (req, res) => {
       }),
       prisma.unidade.findMany({
         where: { empresaId, ...(unidadeFiltro && { id: unidadeFiltro }) },
-        include: { _count: { select: { equipamentos: true, usuarios: true } } },
+        include: {
+          _count: { select: { equipamentos: true, usuarios: true } },
+          usuarios: {
+            where: { ativo: true },
+            include: {
+              vinculacoes: {
+                where: { ativa: true },
+                select: { id: true },
+              },
+            },
+          },
+        },
         orderBy: { nome: 'asc' },
       }),
       prisma.equipamento.groupBy({
@@ -174,7 +185,11 @@ const getDashboard = async (req, res) => {
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
       techRefresh: { totalProjeto, maquinasAgendadas, maquinasEntregues, maquinasFaltamEntregar },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
-      porUnidade: porUnidade.map(u => ({ unidade: u.nome, equipamentos: u._count.equipamentos, usuarios: u._count.usuarios })),
+      porUnidade: porUnidade.map(u => ({
+        unidade: u.nome,
+        equipamentos: u.usuarios.reduce((acc, usr) => acc + usr.vinculacoes.length, 0),
+        usuarios: u._count.usuarios,
+      })),
       porTipo: porTipo.map(t => ({ tipo: t.tipo || 'Sem tipo', total: t._count.tipo })),
       ultimosEquipamentos,
       entregasPorMes: Object.values(mesesMap),
