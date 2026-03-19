@@ -185,11 +185,14 @@ const getDashboard = async (req, res) => {
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
       techRefresh: { totalProjeto, maquinasAgendadas, maquinasEntregues, maquinasFaltamEntregar },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
-      porUnidade: porUnidade.map(u => ({
-        unidade: u.nome,
-        equipamentos: u.usuarios.reduce((acc, usr) => acc + usr.vinculacoes.length, 0),
-        usuarios: u._count.usuarios,
-      })),
+      porUnidade: porUnidade
+        .map(u => ({
+          unidade: u.nome,
+          equipamentos: u.usuarios.reduce((acc, usr) => acc + usr.vinculacoes.length, 0),
+          usuarios: u._count.usuarios,
+        }))
+        .filter(u => u.equipamentos > 0)
+        .sort((a, b) => b.equipamentos - a.equipamentos),
       porTipo: porTipo.map(t => ({ tipo: t.tipo || 'Sem tipo', total: t._count.tipo })),
       ultimosEquipamentos,
       entregasPorMes: Object.values(mesesMap),
