@@ -67,6 +67,7 @@ const buscarPorId = async (req, res) => {
 const criar = async (req, res) => {
   try {
     const { nome, email, funcao, role, unidadeId, senha } = req.body;
+    // Empresa sempre do contexto do admin logado (cliente correto)
     const empresaId = req.usuario.empresaId;
 
     const data = { nome, email, funcao, role: role || 'TECNICO', empresaId };
