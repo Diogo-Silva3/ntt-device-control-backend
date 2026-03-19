@@ -5,6 +5,7 @@ const getDashboard = async (req, res) => {
     const empresaId = req.usuario.empresaId;
     const unidadeIdParam = req.query.unidadeId ? parseInt(req.query.unidadeId) : null;
     const isAdmin = req.usuario.role === 'ADMIN';
+    const tecnicoId = !isAdmin ? req.usuario.id : null;
 
     // Técnico vê apenas sua unidade se não for admin
     const unidadeFiltro = isAdmin
@@ -24,6 +25,14 @@ const getDashboard = async (req, res) => {
       ativo: true,
       ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
     };
+
+    // Filtro de atribuições: técnico vê as suas, admin vê todas (ou por unidade)
+    const whereVinc = tecnicoId
+      ? { ativa: true, tecnicoId }
+      : {
+          ativa: true,
+          usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+        };
 
     const [
       totalEquipamentos,
@@ -100,16 +109,18 @@ const getDashboard = async (req, res) => {
       // Agendadas (atribuições ativas com statusEntrega PENDENTE)
       prisma.vinculacao.count({
         where: {
-          ativa: true,
+          ...whereVinc,
           statusEntrega: 'PENDENTE',
-          usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
         },
       }),
       // Entregues (atribuições com statusEntrega ENTREGUE)
       prisma.vinculacao.count({
         where: {
+          ...(tecnicoId
+            ? { tecnicoId }
+            : { usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) } }
+          ),
           statusEntrega: 'ENTREGUE',
-          usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
         },
       }),
     ]);
