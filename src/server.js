@@ -39,7 +39,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id', 'x-projeto-id'],
 }));
 
 // Responde preflight OPTIONS em todas as rotas
