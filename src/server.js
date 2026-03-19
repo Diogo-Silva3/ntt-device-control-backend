@@ -13,6 +13,7 @@ const importacaoRoutes = require('./routes/importacao.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const chamadoRoutes = require('./routes/chamado.routes');
 const clienteRoutes = require('./routes/cliente.routes');
+const projetoRoutes = require('./routes/projeto.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 
@@ -61,6 +62,7 @@ app.use('/api/importacao', importacaoRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chamados', chamadoRoutes);
 app.use('/api/clientes', clienteRoutes);
+app.use('/api/projetos', projetoRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

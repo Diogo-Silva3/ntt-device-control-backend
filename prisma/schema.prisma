@@ -19,8 +19,27 @@ model Empresa {
   unidades     Unidade[]
   usuarios     Usuario[]
   equipamentos Equipamento[]
+  projetos     Projeto[]
 
   @@map("empresas")
+}
+
+model Projeto {
+  id           Int           @id @default(autoincrement())
+  nome         String
+  descricao    String?
+  ativo        Boolean       @default(true)
+  dataInicio   DateTime?     @map("data_inicio")
+  dataFim      DateTime?     @map("data_fim")
+  empresaId    Int           @map("empresa_id")
+  empresa      Empresa       @relation(fields: [empresaId], references: [id])
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  equipamentos Equipamento[]
+  usuarios     Usuario[]
+  vinculacoes  Vinculacao[]
+
+  @@map("projetos")
 }
 
 model Unidade {
@@ -49,8 +68,10 @@ model Usuario {
   ativo       Boolean      @default(true)
   unidadeId   Int?         @map("unidade_id")
   empresaId   Int          @map("empresa_id")
+  projetoId   Int?         @map("projeto_id")
   unidade     Unidade?     @relation(fields: [unidadeId], references: [id])
   empresa     Empresa      @relation(fields: [empresaId], references: [id])
+  projeto     Projeto?     @relation(fields: [projetoId], references: [id])
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
   vinculacoes          Vinculacao[]
@@ -80,8 +101,10 @@ model Equipamento {
   qrCode               String?      @map("qr_code")
   unidadeId            Int?         @map("unidade_id")
   empresaId            Int          @map("empresa_id")
+  projetoId            Int?         @map("projeto_id")
   unidade              Unidade?     @relation(fields: [unidadeId], references: [id])
   empresa              Empresa      @relation(fields: [empresaId], references: [id])
+  projeto              Projeto?     @relation(fields: [projetoId], references: [id])
   tecnico              Usuario?     @relation("TecnicoEquipamentos", fields: [tecnicoId], references: [id])
   createdAt            DateTime     @default(now()) @map("created_at")
   updatedAt            DateTime     @updatedAt @map("updated_at")
@@ -97,6 +120,7 @@ model Vinculacao {
   usuarioId       Int         @map("usuario_id")
   equipamentoId   Int         @map("equipamento_id")
   tecnicoId       Int?        @map("tecnico_id")
+  projetoId       Int?        @map("projeto_id")
   dataInicio      DateTime    @default(now()) @map("data_inicio")
   dataFim         DateTime?   @map("data_fim")
   ativa           Boolean     @default(true)
@@ -111,6 +135,7 @@ model Vinculacao {
   usuario         Usuario     @relation(fields: [usuarioId], references: [id])
   equipamento     Equipamento @relation(fields: [equipamentoId], references: [id])
   tecnico         Usuario?    @relation("TecnicoAtribuicoes", fields: [tecnicoId], references: [id])
+  projeto         Projeto?    @relation(fields: [projetoId], references: [id])
   createdAt       DateTime    @default(now()) @map("created_at")
 
   @@map("vinculacoes")
