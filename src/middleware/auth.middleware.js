@@ -31,6 +31,7 @@ const authMiddleware = async (req, res, next) => {
           return next();
         }
       }
+      // Sem header, usa a empresa do próprio usuário normalmente
     }
 
     req.usuario = usuario;
