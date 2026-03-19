@@ -138,13 +138,13 @@ const getDashboard = async (req, res) => {
 
     const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
 
-    // Entregas por mês (últimos 6 meses)
+    // Entregas por mês (últimos 6 meses) — baseado em vinculações com statusEntrega ENTREGUE
     const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
-    const entregasPorMesRaw = await prisma.equipamento.findMany({
+    const entregasPorMesRaw = await prisma.vinculacao.findMany({
       where: {
-        ...whereEq,
-        statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
+        statusEntrega: 'ENTREGUE',
         updatedAt: { gte: seisMesesAtras },
+        usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
       },
       select: { updatedAt: true },
     });
