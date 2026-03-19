@@ -45,7 +45,7 @@ const criar = async (req, res) => {
       where: { equipamentoId: parseInt(equipamentoId), ativa: true },
     });
     if (atribuicaoAtiva) {
-      return res.status(400).json({ error: 'Equipamento já está atribuído a outro usuário' });
+      return res.status(400).json({ error: 'Equipamento já está atribuído a outro colaborador' });
     }
 
     const vinculacao = await prisma.vinculacao.create({
