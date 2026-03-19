@@ -144,7 +144,7 @@ const getDashboard = async (req, res) => {
       where: {
         statusEntrega: 'ENTREGUE',
         updatedAt: { gte: seisMesesAtras },
-        usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+        equipamento: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
       },
       select: { updatedAt: true },
     });
