@@ -78,21 +78,12 @@ const getDashboard = async (req, res) => {
         orderBy: { _count: { marca: 'desc' } },
         take: 8,
       }),
-      prisma.unidade.findMany({
-        where: { empresaId, ...(unidadeFiltro && { id: unidadeFiltro }) },
-        include: {
-          _count: { select: { equipamentos: true, usuarios: true } },
-          usuarios: {
-            where: { ativo: true },
-            include: {
-              vinculacoes: {
-                where: { ativa: true },
-                select: { id: true },
-              },
-            },
-          },
-        },
-        orderBy: { nome: 'asc' },
+      prisma.equipamento.groupBy({
+        by: ['unidadeId'],
+        where: { ...whereEq, status: { not: 'DESCARTADO' }, unidadeId: { not: null } },
+        _count: { unidadeId: true },
+        orderBy: { _count: { unidadeId: 'desc' } },
+        take: 10,
       }),
       prisma.equipamento.groupBy({
         by: ['tipo'],
@@ -203,14 +194,33 @@ const getDashboard = async (req, res) => {
         }))
         .filter(u => u.equipamentos > 0)
         .sort((a, b) => b.equipamentos - a.equipamentos),
+    // Busca nomes das unidades para o porUnidade
+    const unidadeIds = porUnidade.map(u => u.unidadeId).filter(Boolean)
+    const unidadesMap = unidadeIds.length > 0
+      ? await prisma.unidade.findMany({ where: { id: { in: unidadeIds } }, select: { id: true, nome: true } })
+      : []
+    const unidadeNomeMap = Object.fromEntries(unidadesMap.map(u => [u.id, u.nome]))
+
+    res.json({
+      resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
+      processo: { emPreparacao, aguardandoImagem, aguardandoSoftware, agendados, entregues },
+      alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
+      techRefresh: { totalProjeto, maquinasAgendadas, maquinasEntregues, maquinasFaltamEntregar },
+      porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
+      porUnidade: porUnidade
+        .map(u => ({
+          unidade: unidadeNomeMap[u.unidadeId] || 'Sem unidade',
+          equipamentos: u._count.unidadeId,
+        }))
+        .filter(u => u.equipamentos > 0)
+        .sort((a, b) => b.equipamentos - a.equipamentos),
       porTipo: porTipo.map(t => ({ tipo: t.tipo || 'Sem tipo', total: t._count.tipo })),
       ultimosEquipamentos,
       entregasPorMes: Object.values(mesesMap),
       atividadesRecentes,
       unidades,
       unidadeFiltroAtivo: unidadeFiltro,
-    });
-  } catch (err) {
+    });  } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao carregar dashboard' });
   }
