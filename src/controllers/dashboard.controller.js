@@ -28,11 +28,12 @@ const getDashboard = async (req, res) => {
       ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
     };
 
-    // Filtro de atribuições: técnico vê as suas, admin vê todas (ou por unidade)
+    // Filtro de atribuições: técnico vê as suas, admin vê todas (ou por unidade/projeto)
     const whereVinc = tecnicoId
       ? { ativa: true, tecnicoId }
       : {
           ativa: true,
+          ...(projetoId && { equipamento: { projetoId } }),
           usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
         };
 
@@ -131,7 +132,10 @@ const getDashboard = async (req, res) => {
         where: {
           ...(tecnicoId
             ? { tecnicoId }
-            : { usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) } }
+            : {
+                ...(projetoId && { equipamento: { projetoId } }),
+                usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+              }
           ),
           statusEntrega: 'ENTREGUE',
         },
@@ -146,6 +150,7 @@ const getDashboard = async (req, res) => {
       where: {
         statusEntrega: 'ENTREGUE',
         createdAt: { gte: seisMesesAtras },
+        ...(projetoId && { equipamento: { projetoId } }),
         usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
       },
       select: { createdAt: true },
@@ -165,7 +170,10 @@ const getDashboard = async (req, res) => {
     });
 
     const atividadesRecentes = await prisma.vinculacao.findMany({
-      where: { usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) } },
+      where: {
+        ...(projetoId && { equipamento: { projetoId } }),
+        usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+      },
       orderBy: { createdAt: 'desc' },
       take: 8,
       include: {
