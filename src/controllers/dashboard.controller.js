@@ -8,7 +8,6 @@ const getDashboard = async (req, res) => {
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
 
-    // Técnico vê apenas sua unidade se não for admin
     const unidadeFiltro = isAdmin
       ? (unidadeIdParam || null)
       : (req.usuario.unidadeId || null);
@@ -28,7 +27,6 @@ const getDashboard = async (req, res) => {
       ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
     };
 
-    // Filtro de atribuições: técnico vê as suas, admin vê todas (ou por unidade/projeto)
     const whereVinc = tecnicoId
       ? { ativa: true, tecnicoId }
       : {
@@ -50,12 +48,11 @@ const getDashboard = async (req, res) => {
       agendados,
       entregues,
       porMarca,
-      porUnidade,
+      porUnidadeRaw,
       porTipo,
       ultimosEquipamentos,
       colaboradoresSemEquipamento,
       atrasadosNaPreparacao,
-      // Tech Refresh indicators
       totalProjeto,
       maquinasAgendadas,
       maquinasEntregues,
@@ -109,16 +106,10 @@ const getDashboard = async (req, res) => {
           updatedAt: { lt: tresDiasAtras },
         },
       }),
-      // Total do projeto (todos exceto descartados)
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      // Agendadas (atribuições ativas com statusEntrega PENDENTE)
       prisma.vinculacao.count({
-        where: {
-          ...whereVinc,
-          statusEntrega: 'PENDENTE',
-        },
+        where: { ...whereVinc, statusEntrega: 'PENDENTE' },
       }),
-      // Entregues (atribuições com statusEntrega ENTREGUE)
       prisma.vinculacao.count({
         where: {
           ...(tecnicoId
@@ -135,7 +126,18 @@ const getDashboard = async (req, res) => {
 
     const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
 
-    // Entregas por mês (últimos 6 meses) — baseado em vinculações com statusEntrega ENTREGUE
+    // Busca nomes das unidades para porUnidade
+    const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
+    const unidadesNomes = unidadeIds.length > 0
+      ? await prisma.unidade.findMany({ where: { id: { in: unidadeIds } }, select: { id: true, nome: true } })
+      : [];
+    const unidadeNomeMap = Object.fromEntries(unidadesNomes.map(u => [u.id, u.nome]));
+
+    const porUnidade = porUnidadeRaw
+      .map(u => ({ unidade: unidadeNomeMap[u.unidadeId] || 'Sem unidade', equipamentos: u._count.unidadeId }))
+      .sort((a, b) => b.equipamentos - a.equipamentos);
+
+    // Entregas por mês (últimos 6 meses)
     const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
     const entregasPorMesRaw = await prisma.vinculacao.findMany({
       where: {
@@ -155,7 +157,7 @@ const getDashboard = async (req, res) => {
       mesesMap[key] = { mes: label, entregas: 0 };
     }
     entregasPorMesRaw.forEach(e => {
-      const d = new Date(e.createdAt)
+      const d = new Date(e.createdAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (mesesMap[key]) mesesMap[key].entregas++;
     });
@@ -173,7 +175,6 @@ const getDashboard = async (req, res) => {
       },
     });
 
-    // Lista de unidades para filtro no frontend
     const unidades = await prisma.unidade.findMany({
       where: { empresaId },
       select: { id: true, nome: true },
@@ -186,41 +187,15 @@ const getDashboard = async (req, res) => {
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
       techRefresh: { totalProjeto, maquinasAgendadas, maquinasEntregues, maquinasFaltamEntregar },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
-      porUnidade: porUnidade
-        .map(u => ({
-          unidade: u.nome,
-          equipamentos: u.usuarios.reduce((acc, usr) => acc + usr.vinculacoes.length, 0),
-          usuarios: u._count.usuarios,
-        }))
-        .filter(u => u.equipamentos > 0)
-        .sort((a, b) => b.equipamentos - a.equipamentos),
-    // Busca nomes das unidades para o porUnidade
-    const unidadeIds = porUnidade.map(u => u.unidadeId).filter(Boolean)
-    const unidadesMap = unidadeIds.length > 0
-      ? await prisma.unidade.findMany({ where: { id: { in: unidadeIds } }, select: { id: true, nome: true } })
-      : []
-    const unidadeNomeMap = Object.fromEntries(unidadesMap.map(u => [u.id, u.nome]))
-
-    res.json({
-      resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
-      processo: { emPreparacao, aguardandoImagem, aguardandoSoftware, agendados, entregues },
-      alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
-      techRefresh: { totalProjeto, maquinasAgendadas, maquinasEntregues, maquinasFaltamEntregar },
-      porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
-      porUnidade: porUnidade
-        .map(u => ({
-          unidade: unidadeNomeMap[u.unidadeId] || 'Sem unidade',
-          equipamentos: u._count.unidadeId,
-        }))
-        .filter(u => u.equipamentos > 0)
-        .sort((a, b) => b.equipamentos - a.equipamentos),
+      porUnidade,
       porTipo: porTipo.map(t => ({ tipo: t.tipo || 'Sem tipo', total: t._count.tipo })),
       ultimosEquipamentos,
       entregasPorMes: Object.values(mesesMap),
       atividadesRecentes,
       unidades,
       unidadeFiltroAtivo: unidadeFiltro,
-    });  } catch (err) {
+    });
+  } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao carregar dashboard' });
   }
