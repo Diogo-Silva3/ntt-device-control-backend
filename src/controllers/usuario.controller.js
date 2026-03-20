@@ -85,10 +85,14 @@ const criar = async (req, res) => {
 
 const atualizar = async (req, res) => {
   try {
-    const { nome, email, funcao, role, unidadeId, ativo, senha } = req.body;
+    const { nome, email, funcao, role, unidadeId, ativo, senha, empresaId } = req.body;
     const data = { nome, email, funcao, role, ativo };
     if (unidadeId !== undefined) data.unidadeId = unidadeId ? parseInt(unidadeId) : null;
     if (senha) data.senha = await bcrypt.hash(senha, 10);
+    // Só SUPERADMIN pode trocar a empresa de um usuário
+    if (empresaId && req.usuario.role === 'SUPERADMIN') {
+      data.empresaId = parseInt(empresaId);
+    }
 
     const usuario = await prisma.usuario.update({
       where: { id: parseInt(req.params.id) },
