@@ -4,7 +4,7 @@ const prisma = require('../config/prisma');
 
 const DOMINIOS_PERMITIDOS = process.env.ALLOWED_DOMAINS
   ? process.env.ALLOWED_DOMAINS.split(',').map(d => d.trim())
-  : ['@grupobimbo.com', '@global.nttdata.com', '@gbsupport.net', '@nttdata.com'];
+  : ['@grupobimbo.com', '@global.nttdata.com', '@gbsupport.net', '@nttdata.com', '@pasqualisolution.com.br'];
 
 const login = async (req, res) => {
   try {
