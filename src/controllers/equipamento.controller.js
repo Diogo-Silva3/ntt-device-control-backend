@@ -206,8 +206,7 @@ const atualizarChecklist = async (req, res) => {
       const done = vals.filter(v => v).length;
       const total = vals.length;
       if (done === 0) data.statusProcesso = 'Novo';
-      else if (done < Math.ceil(total / 2)) data.statusProcesso = 'Imagem Instalada';
-      else if (done < total) data.statusProcesso = 'Softwares Instalados';
+      else if (done < total) data.statusProcesso = 'Imagem Instalada';
       else data.statusProcesso = 'Asset Registrado';
     }
 
