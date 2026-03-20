@@ -104,6 +104,7 @@ const importarEquipamentos = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo nao enviado' });
     const empresaId = req.usuario.empresaId;
+    const projetoId = req.body.projetoId ? parseInt(req.body.projetoId) : null;
     const { comHeader, semHeader, temHeader } = lerPlanilha(req.file.buffer);
     let criados = 0, atualizados = 0, vinculados = 0, erros = [];
 
@@ -236,6 +237,7 @@ const importarEquipamentos = async (req, res) => {
                 modelo: modelo || existente.modelo,
                 status,
                 unidadeId,
+                ...(projetoId && { projetoId }),
                 ...(serial && { serialNumber: serial }),
                 ...(patrimonio && { patrimonio }),
               },
@@ -257,6 +259,7 @@ const importarEquipamentos = async (req, res) => {
               status,
               unidadeId,
               empresaId,
+              ...(projetoId && { projetoId }),
               ...(patrimonio && { patrimonio }),
             },
           });

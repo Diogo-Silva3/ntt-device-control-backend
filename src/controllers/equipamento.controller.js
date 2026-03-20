@@ -18,10 +18,12 @@ const listar = async (req, res) => {
   try {
     const { busca, status, statusProcesso, unidadeId, tipo, marca, page = 1, limit = 50 } = req.query;
     const empresaId = req.usuario.empresaId;
+    const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const where = {
       empresaId,
+      ...(projetoId && { projetoId }),
       // Esconde descartados por padrão, a menos que filtro explícito
       ...(status ? { status } : { status: { not: 'DESCARTADO' } }),
       ...(statusProcesso && { statusProcesso }),

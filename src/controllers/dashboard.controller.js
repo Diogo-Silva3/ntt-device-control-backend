@@ -4,6 +4,7 @@ const getDashboard = async (req, res) => {
   try {
     const empresaId = req.usuario.empresaId;
     const unidadeIdParam = req.query.unidadeId ? parseInt(req.query.unidadeId) : null;
+    const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
 
@@ -17,6 +18,7 @@ const getDashboard = async (req, res) => {
 
     const whereEq = {
       empresaId,
+      ...(projetoId && { projetoId }),
       ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
     };
 
