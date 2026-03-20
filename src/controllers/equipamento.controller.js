@@ -3,6 +3,8 @@ const QRCode = require('qrcode');
 
 const PROCESSO_STEPS = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega', 'Entregue ao Usuário', 'Em Uso', 'Em Manutenção', 'Baixado'];
 
+const CHECKLIST_PREPARACAO = ['imagem', 'drivers', 'office', 'antivirus', 'vpn', 'monitoramento', 'rede', 'login'];
+
 const includeBase = {
   unidade: true,
   tecnico: { select: { id: true, nome: true } },
@@ -198,6 +200,9 @@ const atualizarChecklist = async (req, res) => {
     if (tipo === 'entrega' && itens && Object.values(itens).every(v => v === true)) {
       data.statusProcesso = 'Em Uso';
       data.status = 'EM_USO';
+      // Marca checklist de preparação como completo também
+      const prepCompleto = Object.fromEntries(CHECKLIST_PREPARACAO.map(i => [i, true]));
+      data.checklistPreparacao = JSON.stringify(prepCompleto);
     }
 
     // Se checklist de preparação: calcular progresso e atualizar statusProcesso
