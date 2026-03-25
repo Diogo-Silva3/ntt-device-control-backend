@@ -26,11 +26,7 @@ const listar = async (req, res) => {
       ...(projetoId && { projetoId }),
       // Esconde descartados por padrão, a menos que filtro explícito
       ...(status ? { status } : { status: { not: 'DESCARTADO' } }),
-      ...(statusProcesso && {
-        statusProcesso: statusProcesso === 'Imagem Instalada'
-          ? { in: ['Imagem Instalada', 'Softwares Instalados', 'Asset Registrado'] }
-          : statusProcesso
-      }),
+      ...(statusProcesso && { statusProcesso }),
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
       ...(tipo && { tipo: { contains: tipo } }),
       ...(marca && { marca: { contains: marca } }),
@@ -213,12 +209,24 @@ const atualizarChecklist = async (req, res) => {
 
     // Se checklist de preparação: calcular progresso e atualizar statusProcesso
     if (tipo === 'preparacao' && itens) {
-      const vals = Object.values(itens);
-      const done = vals.filter(v => v).length;
-      const total = vals.length;
-      if (done === 0) data.statusProcesso = 'Novo';
-      else if (done < total) data.statusProcesso = 'Imagem Instalada';
-      else data.statusProcesso = 'Asset Registrado';
+      const done = Object.values(itens).filter(v => v).length;
+      const total = CHECKLIST_PREPARACAO.length; // 8
+
+      if (done === 0) {
+        data.statusProcesso = 'Novo';
+      } else if (itens['imagem'] && done === 1) {
+        // Só imagem marcada
+        data.statusProcesso = 'Imagem Instalada';
+      } else if (itens['imagem'] && done < total) {
+        // Imagem + outros softwares, mas não todos
+        data.statusProcesso = 'Softwares Instalados';
+      } else if (done === total) {
+        // Todos os 8 marcados
+        data.statusProcesso = 'Asset Registrado';
+      } else if (!itens['imagem'] && done > 0) {
+        // Marcou outros sem marcar imagem
+        data.statusProcesso = 'Imagem Instalada';
+      }
     }
 
     const equipamento = await prisma.equipamento.update({
