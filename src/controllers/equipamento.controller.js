@@ -26,7 +26,11 @@ const listar = async (req, res) => {
       ...(projetoId && { projetoId }),
       // Esconde descartados por padrão, a menos que filtro explícito
       ...(status ? { status } : { status: { not: 'DESCARTADO' } }),
-      ...(statusProcesso && { statusProcesso }),
+      ...(statusProcesso && {
+        statusProcesso: statusProcesso === 'Imagem Instalada'
+          ? { in: ['Imagem Instalada', 'Softwares Instalados', 'Asset Registrado'] }
+          : statusProcesso
+      }),
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
       ...(tipo && { tipo: { contains: tipo } }),
       ...(marca && { marca: { contains: marca } }),
