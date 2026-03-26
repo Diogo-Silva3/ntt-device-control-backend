@@ -10,6 +10,7 @@ const listar = async (req, res) => {
   try {
     const { ativa, usuarioId, equipamentoId, statusEntrega } = req.query;
     const empresaId = req.usuario.empresaId;
+    const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
 
     const vinculacoes = await prisma.vinculacao.findMany({
       where: {
@@ -17,6 +18,7 @@ const listar = async (req, res) => {
         ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
         ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
         ...(statusEntrega && { statusEntrega }),
+        ...(projetoId && { equipamento: { projetoId } }),
         usuario: { empresaId },
       },
       include: includeCompleto,
