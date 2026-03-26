@@ -166,11 +166,23 @@ const importarEquipamentos = async (req, res) => {
       return null;
     };
 
-    const criarVinculacao = async (equipamentoId, nomeColaborador, numeroChamado) => {
+    const criarVinculacao = async (equipamentoId, nomeColaborador, numeroChamado, unidadeId) => {
       if (!nomeColaborador) return false;
       if (vinculadosSet.has(equipamentoId)) return false;
-      const colaborador = buscarColaborador(nomeColaborador);
-      if (!colaborador) return false;
+      let colaborador = buscarColaborador(nomeColaborador);
+      // Se não encontrou, cria automaticamente
+      if (!colaborador) {
+        colaborador = await prisma.usuario.create({
+          data: {
+            nome: nomeColaborador.trim(),
+            role: 'COLABORADOR',
+            ativo: true,
+            empresaId,
+            ...(unidadeId && { unidadeId }),
+          }
+        });
+        colaboradorMap.set(norm(colaborador.nome), colaborador);
+      }
       await prisma.vinculacao.create({
         data: {
           usuarioId: colaborador.id,
@@ -243,7 +255,7 @@ const importarEquipamentos = async (req, res) => {
               },
             });
             if (colaborador && status === 'EM_USO') {
-              const ok = await criarVinculacao(existente.id, colaborador, chamado || null);
+              const ok = await criarVinculacao(existente.id, colaborador, chamado || null, unidadeId);
               if (ok) vinculados++;
             }
             atualizados++;
@@ -272,7 +284,7 @@ const importarEquipamentos = async (req, res) => {
             .catch(() => {});
 
           if (colaborador && status === 'EM_USO') {
-            const ok = await criarVinculacao(equip.id, colaborador, chamado || null);
+            const ok = await criarVinculacao(equip.id, colaborador, chamado || null, unidadeId);
             if (ok) vinculados++;
           }
 
