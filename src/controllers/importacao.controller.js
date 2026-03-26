@@ -134,7 +134,7 @@ const importarEquipamentos = async (req, res) => {
       if (!nomeUnidade || !nomeUnidade.trim()) return null;
       const key = norm(nomeUnidade);
       if (unidadeMap.has(key)) return unidadeMap.get(key).id;
-      const nova = await prisma.unidade.create({ data: { nome: nomeUnidade.trim(), empresaId } });
+      const nova = await prisma.unidade.create({ data: { nome: nomeUnidade.trim().toUpperCase(), empresaId } });
       unidadeMap.set(key, nova);
       return nova.id;
     };
@@ -174,7 +174,7 @@ const importarEquipamentos = async (req, res) => {
       if (!colaborador) {
         colaborador = await prisma.usuario.create({
           data: {
-            nome: nomeColaborador.trim(),
+            nome: nomeColaborador.trim().toUpperCase(),
             role: 'COLABORADOR',
             ativo: true,
             empresaId,

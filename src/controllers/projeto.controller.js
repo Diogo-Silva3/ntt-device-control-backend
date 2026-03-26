@@ -25,7 +25,7 @@ const criar = async (req, res) => {
 
     const projeto = await prisma.projeto.create({
       data: {
-        nome, descricao,
+        nome: nome?.toUpperCase(), descricao,
         empresaId,
         dataInicio: dataInicio ? new Date(dataInicio) : null,
         dataFim: dataFim ? new Date(dataFim) : null,
@@ -46,7 +46,7 @@ const atualizar = async (req, res) => {
     const projeto = await prisma.projeto.update({
       where: { id },
       data: {
-        nome, descricao,
+        nome: nome?.toUpperCase(), descricao,
         ...(ativo !== undefined && { ativo }),
         dataInicio: dataInicio ? new Date(dataInicio) : null,
         dataFim: dataFim ? new Date(dataFim) : null,

@@ -38,7 +38,7 @@ const criar = async (req, res) => {
     const empresaId = req.usuario.empresaId;
 
     const unidade = await prisma.unidade.create({
-      data: { nome, cidade, estado, empresaId },
+      data: { nome: nome?.toUpperCase(), cidade, estado, empresaId },
     });
     res.status(201).json(unidade);
   } catch (err) {
@@ -54,7 +54,7 @@ const atualizar = async (req, res) => {
     const { nome, cidade, estado } = req.body;
     const unidade = await prisma.unidade.update({
       where: { id: parseInt(req.params.id) },
-      data: { nome, cidade, estado },
+      data: { nome: nome?.toUpperCase(), cidade, estado },
     });
     res.json(unidade);
   } catch (err) {

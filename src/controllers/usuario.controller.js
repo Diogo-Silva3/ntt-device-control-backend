@@ -70,7 +70,7 @@ const criar = async (req, res) => {
     // Empresa sempre do contexto do admin logado (cliente correto)
     const empresaId = req.usuario.empresaId;
 
-    const data = { nome, email, funcao, role: role || 'TECNICO', empresaId };
+    const data = { nome: nome?.toUpperCase(), email, funcao, role: role || 'TECNICO', empresaId };
     if (unidadeId) data.unidadeId = parseInt(unidadeId);
     if (senha) data.senha = await bcrypt.hash(senha, 10);
 
@@ -86,7 +86,7 @@ const criar = async (req, res) => {
 const atualizar = async (req, res) => {
   try {
     const { nome, email, funcao, role, unidadeId, ativo, senha, empresaId } = req.body;
-    const data = { nome, email, funcao, role, ativo };
+    const data = { nome: nome?.toUpperCase(), email, funcao, role, ativo };
     if (unidadeId !== undefined) data.unidadeId = unidadeId ? parseInt(unidadeId) : null;
     if (senha) data.senha = await bcrypt.hash(senha, 10);
     // Só SUPERADMIN pode trocar a empresa de um usuário
