@@ -166,7 +166,7 @@ const importarEquipamentos = async (req, res) => {
       return null;
     };
 
-    const criarVinculacao = async (equipamentoId, nomeColaborador, numeroChamado, unidadeId) => {
+    const criarVinculacao = async (equipamentoId, nomeColaborador, numeroChamado, unidadeId, statusEntrega = 'PENDENTE') => {
       if (!nomeColaborador) return false;
       if (vinculadosSet.has(equipamentoId)) return false;
       let colaborador = buscarColaborador(nomeColaborador);
@@ -189,7 +189,7 @@ const importarEquipamentos = async (req, res) => {
           equipamentoId,
           numeroChamado: numeroChamado || null,
           tipoOperacao: 'Importacao',
-          statusEntrega: 'ENTREGUE',
+          statusEntrega,
           ativa: true,
         },
       });
@@ -254,8 +254,8 @@ const importarEquipamentos = async (req, res) => {
                 ...(patrimonio && { patrimonio }),
               },
             });
-            if (colaborador && status === 'EM_USO') {
-              const ok = await criarVinculacao(existente.id, colaborador, chamado || null, unidadeId);
+            if (colaborador) {
+              const ok = await criarVinculacao(existente.id, colaborador, chamado || null, unidadeId, status === 'EM_USO' ? 'ENTREGUE' : 'PENDENTE');
               if (ok) vinculados++;
             }
             atualizados++;
@@ -283,8 +283,8 @@ const importarEquipamentos = async (req, res) => {
             .then(qrCode => prisma.equipamento.update({ where: { id: equip.id }, data: { qrCode } }))
             .catch(() => {});
 
-          if (colaborador && status === 'EM_USO') {
-            const ok = await criarVinculacao(equip.id, colaborador, chamado || null, unidadeId);
+          if (colaborador) {
+            const ok = await criarVinculacao(equip.id, colaborador, chamado || null, unidadeId, status === 'EM_USO' ? 'ENTREGUE' : 'PENDENTE');
             if (ok) vinculados++;
           }
 
