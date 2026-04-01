@@ -95,6 +95,7 @@ const buscarPorId = async (req, res) => {
       ...equipamento,
       checklistPreparacao: equipamento.checklistPreparacao ? JSON.parse(equipamento.checklistPreparacao) : null,
       checklistEntrega: equipamento.checklistEntrega ? JSON.parse(equipamento.checklistEntrega) : null,
+      historicoEtapas: equipamento.historicoEtapas ? JSON.parse(equipamento.historicoEtapas) : [],
       agendamento: equipamento.agendamento ? JSON.parse(equipamento.agendamento) : null,
     };
 
@@ -146,11 +147,11 @@ const atualizar = async (req, res) => {
 
     // Se mudou statusProcesso, registra no histórico de etapas
     if (statusProcesso !== undefined) {
-      const atual = await prisma.equipamento.findUnique({ where: { id }, select: { statusProcesso: true, checklistPreparacao: true } });
+      const atual = await prisma.equipamento.findUnique({ where: { id }, select: { statusProcesso: true, historicoEtapas: true } });
       if (atual && atual.statusProcesso !== statusProcesso) {
-        // Salva histórico da etapa no checklistPreparacao como log de etapas
+        // Salva histórico da etapa no campo dedicado historicoEtapas
         let etapasLog = [];
-        try { etapasLog = atual.checklistPreparacao ? JSON.parse(atual.checklistPreparacao) : []; } catch { etapasLog = []; }
+        try { etapasLog = atual.historicoEtapas ? JSON.parse(atual.historicoEtapas) : []; } catch { etapasLog = []; }
         if (!Array.isArray(etapasLog)) etapasLog = [];
         etapasLog.push({
           etapa: statusProcesso,
@@ -161,7 +162,7 @@ const atualizar = async (req, res) => {
           comentario: comentarioEtapa || null,
           data: new Date().toISOString(),
         });
-        await prisma.equipamento.update({ where: { id }, data: { checklistPreparacao: JSON.stringify(etapasLog) } });
+        await prisma.equipamento.update({ where: { id }, data: { historicoEtapas: JSON.stringify(etapasLog) } });
 
         // Registra no histórico geral
         await prisma.historico.create({

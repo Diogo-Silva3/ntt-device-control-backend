@@ -94,6 +94,7 @@ model Equipamento {
   statusProcesso       String?      @default("Novo") @map("status_processo")
   checklistPreparacao  String?      @map("checklist_preparacao")
   checklistEntrega     String?      @map("checklist_entrega")
+  historicoEtapas      String?      @map("historico_etapas")
   agendamento          String?
   tecnicoId            Int?         @map("tecnico_id")
   dataEntrega          DateTime?    @map("data_entrega")
