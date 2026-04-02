@@ -227,7 +227,7 @@ const marcarEntregue = async (req, res) => {
     const id = parseInt(req.params.id);
     const atualizada = await prisma.vinculacao.update({
       where: { id },
-      data: { statusEntrega: 'ENTREGUE' },
+      data: { statusEntrega: 'ENTREGUE', dataFim: new Date() },
       include: includeCompleto,
     });
     res.json(atualizada);
@@ -236,4 +236,20 @@ const marcarEntregue = async (req, res) => {
   }
 };
 
-module.exports = { listar, criar, encerrar, reagendar, marcarNaoCompareceu, marcarEntregue };
+const atualizarTecnico = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { tecnicoId } = req.body;
+    if (!tecnicoId) return res.status(400).json({ error: 'Técnico é obrigatório' });
+    const atualizada = await prisma.vinculacao.update({
+      where: { id },
+      data: { tecnicoId: parseInt(tecnicoId) },
+      include: includeCompleto,
+    });
+    res.json(atualizada);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao atualizar técnico' });
+  }
+};
+
+module.exports = { listar, criar, encerrar, reagendar, marcarNaoCompareceu, marcarEntregue, atualizarTecnico };

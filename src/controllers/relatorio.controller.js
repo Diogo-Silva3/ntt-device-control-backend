@@ -715,9 +715,11 @@ const getSLA = async (req, res) => {
         createdAt: true,
         dataFim: true,
         dataAgendamento: true,
+        updatedAt: true,
         equipamento: {
           select: {
             createdAt: true,
+            updatedAt: true,
             tipo: true,
             marca: true,
             modelo: true,
@@ -731,25 +733,37 @@ const getSLA = async (req, res) => {
 
     const calcDias = (a, b) => {
       if (!a || !b) return null;
-      return Math.max(0, Math.round((new Date(b) - new Date(a)) / (1000 * 60 * 60 * 24)));
+      const diff = Math.round((new Date(b) - new Date(a)) / (1000 * 60 * 60 * 24));
+      return Math.max(0, diff);
     };
 
-    const registros = vinculacoes.map(v => ({
-      equipamento: `${v.equipamento?.marca || ''} ${v.equipamento?.modelo || ''}`.trim() || '—',
-      tipo: v.equipamento?.tipo || '—',
-      tecnico: v.tecnico?.nome || '—',
-      diasPreparacao: calcDias(v.equipamento?.createdAt, v.createdAt),
-      diasEntrega: calcDias(v.createdAt, v.dataFim || new Date()),
-      diasTotal: calcDias(v.equipamento?.createdAt, v.dataFim || new Date()),
-      dataEntrega: v.dataFim,
-    }));
+    const registros = vinculacoes.map(v => {
+      // Data de entrega real: dataFim ou updatedAt da vinculação
+      const dataEntregaReal = v.dataFim || v.updatedAt;
+      // Dias de preparação: criação do equipamento até criação da vinculação (atribuição)
+      const diasPreparacao = calcDias(v.equipamento?.createdAt, v.createdAt);
+      // Dias de entrega: criação da vinculação até entrega real
+      const diasEntrega = calcDias(v.createdAt, dataEntregaReal);
+      // Total: criação do equipamento até entrega real
+      const diasTotal = calcDias(v.equipamento?.createdAt, dataEntregaReal);
 
-    const validos = registros.filter(r => r.diasTotal !== null);
+      return {
+        equipamento: `${v.equipamento?.marca || ''} ${v.equipamento?.modelo || ''}`.trim() || '—',
+        tipo: v.equipamento?.tipo || '—',
+        tecnico: v.tecnico?.nome || '—',
+        diasPreparacao,
+        diasEntrega,
+        diasTotal,
+        dataEntrega: dataEntregaReal,
+      };
+    });
+
+    const validos = registros.filter(r => r.diasTotal !== null && r.diasTotal >= 0);
     const media = validos.length
       ? Math.round(validos.reduce((s, r) => s + r.diasTotal, 0) / validos.length)
       : 0;
-    const mediaPrep = validos.length
-      ? Math.round(validos.reduce((s, r) => s + (r.diasPreparacao || 0), 0) / validos.length)
+    const mediaPrep = validos.filter(r => r.diasPreparacao !== null).length
+      ? Math.round(validos.filter(r => r.diasPreparacao !== null).reduce((s, r) => s + r.diasPreparacao, 0) / validos.filter(r => r.diasPreparacao !== null).length)
       : 0;
 
     res.json({ registros, media, mediaPrep, total: validos.length });
