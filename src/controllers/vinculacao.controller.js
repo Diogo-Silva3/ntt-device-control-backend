@@ -90,7 +90,7 @@ const criar = async (req, res) => {
       });
       enviarEmail({
         para: vinculacao.usuario.email,
-        assunto: 'Entrega de equipamento agendada',
+        assunto: 'Tech Refresh - Entrega de equipamento agendada',
         html: templateAgendamento({
           colaborador: vinculacao.usuario.nome,
           equipamento: `${eq?.marca || ''} ${eq?.modelo || ''}`.trim() || 'Equipamento',
@@ -190,7 +190,7 @@ const reagendar = async (req, res) => {
       });
       enviarEmail({
         para: atualizada.usuario.email,
-        assunto: 'Entrega reagendada',
+        assunto: 'Tech Refresh - Entrega reagendada',
         html: templateReagendamento({
           colaborador: atualizada.usuario.nome,
           equipamento: `${eq?.marca || ''} ${eq?.modelo || ''}`.trim() || 'Equipamento',
