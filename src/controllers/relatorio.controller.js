@@ -700,9 +700,157 @@ const exportarImprodutivos = async (req, res) => {
   }
 };
 
+const getSLA = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
+
+    const vinculacoes = await prisma.vinculacao.findMany({
+      where: {
+        statusEntrega: 'ENTREGUE',
+        usuario: { empresaId },
+        ...(projetoId && { equipamento: { projetoId } }),
+      },
+      select: {
+        createdAt: true,
+        dataFim: true,
+        dataAgendamento: true,
+        equipamento: {
+          select: {
+            createdAt: true,
+            tipo: true,
+            marca: true,
+            modelo: true,
+          },
+        },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    const calcDias = (a, b) => {
+      if (!a || !b) return null;
+      return Math.max(0, Math.round((new Date(b) - new Date(a)) / (1000 * 60 * 60 * 24)));
+    };
+
+    const registros = vinculacoes.map(v => ({
+      equipamento: `${v.equipamento?.marca || ''} ${v.equipamento?.modelo || ''}`.trim() || '—',
+      tipo: v.equipamento?.tipo || '—',
+      tecnico: v.tecnico?.nome || '—',
+      diasPreparacao: calcDias(v.equipamento?.createdAt, v.createdAt),
+      diasEntrega: calcDias(v.createdAt, v.dataFim || new Date()),
+      diasTotal: calcDias(v.equipamento?.createdAt, v.dataFim || new Date()),
+      dataEntrega: v.dataFim,
+    }));
+
+    const validos = registros.filter(r => r.diasTotal !== null);
+    const media = validos.length
+      ? Math.round(validos.reduce((s, r) => s + r.diasTotal, 0) / validos.length)
+      : 0;
+    const mediaPrep = validos.length
+      ? Math.round(validos.reduce((s, r) => s + (r.diasPreparacao || 0), 0) / validos.length)
+      : 0;
+
+    res.json({ registros, media, mediaPrep, total: validos.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar SLA' });
+  }
+};
+
+const gerarEtiquetas = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const { ids } = req.query; // ids separados por vírgula, ou todos se omitido
+    const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
+
+    const where = {
+      empresaId,
+      status: { not: 'DESCARTADO' },
+      qrCode: { not: null },
+      ...(projetoId && { projetoId }),
+      ...(ids && { id: { in: ids.split(',').map(Number) } }),
+    };
+
+    const equipamentos = await prisma.equipamento.findMany({
+      where,
+      select: { id: true, marca: true, modelo: true, serialNumber: true, patrimonio: true, tipo: true, qrCode: true, unidade: { select: { nome: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+
+    if (!equipamentos.length) return res.status(404).json({ error: 'Nenhum equipamento com QR Code encontrado' });
+
+    const doc = new PDFDocument({ margin: 20, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=etiquetas-${Date.now()}.pdf`);
+    doc.pipe(res);
+
+    // Grade: 3 colunas x 6 linhas = 18 etiquetas por página
+    const cols = 3, rows = 6;
+    const pageW = 555, pageH = 802;
+    const cellW = pageW / cols;
+    const cellH = pageH / rows;
+    const pad = 8;
+
+    for (let i = 0; i < equipamentos.length; i++) {
+      const eq = equipamentos[i];
+      const col = i % cols;
+      const row = Math.floor(i / cols) % rows;
+
+      if (i > 0 && col === 0 && row === 0) doc.addPage();
+
+      const x = 20 + col * cellW;
+      const y = 20 + row * cellH;
+
+      // Borda da etiqueta
+      doc.rect(x + pad, y + pad, cellW - pad * 2, cellH - pad * 2)
+        .strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+
+      // QR Code
+      if (eq.qrCode) {
+        try {
+          const base64 = eq.qrCode.replace(/^data:image\/png;base64,/, '');
+          const buf = Buffer.from(base64, 'base64');
+          const qrSize = cellH - pad * 4 - 30;
+          doc.image(buf, x + pad + 6, y + pad + 6, { width: qrSize, height: qrSize });
+
+          // Texto ao lado do QR
+          const textX = x + pad + 6 + qrSize + 6;
+          const textW = cellW - pad * 2 - qrSize - 18;
+          doc.fontSize(7).font('Helvetica-Bold').fillColor('#1e293b')
+            .text(`${eq.marca || ''} ${eq.modelo || ''}`.trim() || '—', textX, y + pad + 10, { width: textW, lineBreak: true });
+          doc.fontSize(6).font('Helvetica').fillColor('#64748b');
+          if (eq.tipo) doc.text(eq.tipo, textX, doc.y + 2, { width: textW });
+          if (eq.serialNumber) doc.text(`S/N: ${eq.serialNumber}`, textX, doc.y + 2, { width: textW });
+          if (eq.patrimonio) doc.text(`Pat: ${eq.patrimonio}`, textX, doc.y + 2, { width: textW });
+          if (eq.unidade?.nome) doc.text(eq.unidade.nome, textX, doc.y + 2, { width: textW });
+        } catch {}
+      }
+    }
+
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar etiquetas' });
+  }
+};
+
 module.exports = {
-  getEquipamentosPorUnidade, getEquipamentosDisponiveis, exportarPDF, exportarExcel,
-  getRelatorioPreparacao, getAgendamentosSemana, getTodosColaboradores, getVinculacoesAtivas,
-  getEquipamentosPorUnidadeResumo, getColaboradoresSemEquipamento, getEquipamentosSemColaborador,
-  getImprodutivos, exportarImprodutivos,
+  getEquipamentosPorUnidade,
+  getEquipamentosDisponiveis,
+  exportarPDF,
+  exportarExcel,
+  getRelatorioPreparacao,
+  getAgendamentosSemana,
+  getTodosColaboradores,
+  getVinculacoesAtivas,
+  getEquipamentosPorUnidadeResumo,
+  getColaboradoresSemEquipamento,
+  getEquipamentosSemColaborador,
+  getImprodutivos,
+  exportarImprodutivos,
+  gerarEtiquetas,
+  getSLA,
 };

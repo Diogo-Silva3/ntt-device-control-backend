@@ -1,8 +1,17 @@
 const router = require('express').Router();
+const rateLimit = require('express-rate-limit');
 const { login, register, me } = require('../controllers/auth.controller');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth.middleware');
 
-router.post('/login', login);
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // máximo 10 tentativas por IP
+  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/login', loginLimiter, login);
 router.post('/register', authMiddleware, adminMiddleware, register);
 router.get('/me', authMiddleware, me);
 

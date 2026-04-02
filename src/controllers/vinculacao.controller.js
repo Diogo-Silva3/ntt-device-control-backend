@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma');
+const { enviarEmail, templateAgendamento, templateReagendamento } = require('../config/email');
 
 const includeCompleto = {
   usuario: { select: { id: true, nome: true, funcao: true, unidade: true } },
@@ -80,6 +81,25 @@ const criar = async (req, res) => {
       },
     });
 
+    // Envia e-mail de confirmação se colaborador tiver e-mail e houver data agendada
+    if (vinculacao.usuario?.email && dataAgendamento) {
+      const eq = vinculacao.equipamento;
+      const dataFormatada = new Date(dataAgendamento).toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
+        year: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+      enviarEmail({
+        para: vinculacao.usuario.email,
+        assunto: 'Entrega de equipamento agendada',
+        html: templateAgendamento({
+          colaborador: vinculacao.usuario.nome,
+          equipamento: `${eq?.marca || ''} ${eq?.modelo || ''}`.trim() || 'Equipamento',
+          data: dataFormatada,
+          tecnico: vinculacao.tecnico?.nome,
+        }),
+      }).catch(err => console.error('[EMAIL] Erro ao enviar:', err.message));
+    }
+
     res.status(201).json(vinculacao);
   } catch (err) {
     console.error(err);
@@ -160,6 +180,26 @@ const reagendar = async (req, res) => {
       },
       include: includeCompleto,
     });
+
+    // Envia e-mail de reagendamento se colaborador tiver e-mail
+    if (atualizada.usuario?.email) {
+      const eq = atualizada.equipamento;
+      const novaDataFormatada = new Date(dataAgendamento).toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
+        year: 'numeric', hour: '2-digit', minute: '2-digit',
+      });
+      enviarEmail({
+        para: atualizada.usuario.email,
+        assunto: 'Entrega reagendada',
+        html: templateReagendamento({
+          colaborador: atualizada.usuario.nome,
+          equipamento: `${eq?.marca || ''} ${eq?.modelo || ''}`.trim() || 'Equipamento',
+          novaData: novaDataFormatada,
+          motivo,
+          tecnico: atualizada.tecnico?.nome,
+        }),
+      }).catch(err => console.error('[EMAIL] Erro ao enviar:', err.message));
+    }
 
     res.json(atualizada);
   } catch (err) {

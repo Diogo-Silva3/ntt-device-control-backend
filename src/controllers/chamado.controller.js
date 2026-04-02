@@ -3,8 +3,10 @@ const prisma = require('../config/prisma');
 const listar = async (req, res) => {
   try {
     const { status, equipamentoId } = req.query;
+    const empresaId = req.usuario.empresaId;
     const chamados = await prisma.chamado.findMany({
       where: {
+        empresaId,
         ...(status && { status }),
         ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
       },
@@ -23,9 +25,11 @@ const listar = async (req, res) => {
 const criar = async (req, res) => {
   try {
     const { titulo, descricao, prioridade, equipamentoId, usuarioId } = req.body;
+    const empresaId = req.usuario.empresaId;
     const chamado = await prisma.chamado.create({
       data: {
         titulo, descricao, prioridade: prioridade || 'MEDIA',
+        empresaId,
         equipamentoId: equipamentoId ? parseInt(equipamentoId) : null,
         usuarioId: usuarioId ? parseInt(usuarioId) : null,
       },

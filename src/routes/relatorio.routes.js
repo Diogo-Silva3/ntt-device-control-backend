@@ -17,5 +17,7 @@ router.get('/exportar/pdf', ctrl.exportarPDF);
 router.get('/exportar/excel', ctrl.exportarExcel);
 router.get('/improdutivos', ctrl.getImprodutivos);
 router.get('/exportar/improdutivos', ctrl.exportarImprodutivos);
+router.get('/exportar/etiquetas', ctrl.gerarEtiquetas);
+router.get('/sla', ctrl.getSLA);
 
 module.exports = router;

@@ -20,6 +20,7 @@ model Empresa {
   usuarios     Usuario[]
   equipamentos Equipamento[]
   projetos     Projeto[]
+  chamados     Chamado[]
 
   @@map("empresas")
 }
@@ -165,10 +166,13 @@ model Chamado {
   prioridade    String?      @default("MEDIA")
   equipamentoId Int?         @map("equipamento_id")
   usuarioId     Int?         @map("usuario_id")
+  empresaId     Int?         @map("empresa_id")
   equipamento   Equipamento? @relation(fields: [equipamentoId], references: [id])
   usuario       Usuario?     @relation(fields: [usuarioId], references: [id])
+  empresa       Empresa?     @relation(fields: [empresaId], references: [id])
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
+  @@index([empresaId])
   @@map("chamados")
 }
