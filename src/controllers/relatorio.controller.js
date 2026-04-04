@@ -62,8 +62,6 @@ const exportarPDF = async (req, res) => {
     };
 
     if (tipo === 'geral' || tipo === 'disponiveis') {
-      titulo = tipo === 'disponiveis' ? 'Equipamentos Disponiveis' : 'Todos os Equipamentos';
-      headers = ['Marca / Modelo', 'Tipo', 'Serial', 'Unidade', 'Status', 'Colaborador'];
       colWidths = [140, 55, 105, 100, 65, 100];
       const data = await prisma.equipamento.findMany({
         where: { empresaId, ...(tipo === 'disponiveis' && { status: 'DISPONIVEL' }) },
@@ -80,8 +78,6 @@ const exportarPDF = async (req, res) => {
         ];
       });
     } else if (tipo === 'colaboradores') {
-      titulo = 'Todos os Colaboradores';
-      headers = ['Nome', 'Funcao', 'Unidade', 'Equipamento'];
       colWidths = [175, 130, 130, 130];
       const data = await prisma.usuario.findMany({
         where: { empresaId, ativo: true, senha: null },
@@ -90,11 +86,9 @@ const exportarPDF = async (req, res) => {
       });
       rows = data.map(u => [
         trunc(u.nome, 169), trunc(u.funcao, 124), trunc(u.unidade?.nome, 124),
-        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : 'Sem equipamento', 124),
+        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : '-', 124),
       ]);
     } else if (tipo === 'vinculacoes') {
-      titulo = 'Vinculacoes Ativas';
-      headers = ['Colaborador', 'Funcao', 'Unidade', 'Equipamento', 'Serial', 'Desde'];
       colWidths = [130, 95, 100, 115, 90, 55];
       const data = await prisma.vinculacao.findMany({
         where: { ativa: true, usuario: { empresaId, senha: null } },
@@ -107,8 +101,6 @@ const exportarPDF = async (req, res) => {
         trunc(v.equipamento.serialNumber, 84), new Date(v.dataInicio).toLocaleDateString('pt-BR'),
       ]);
     } else if (tipo === 'porUnidade') {
-      titulo = 'Equipamentos por Unidade';
-      headers = ['Unidade', 'Equipamento', 'Tipo', 'Serial', 'Status'];
       colWidths = [115, 145, 65, 110, 80];
       const data = await prisma.unidade.findMany({
         where: { empresaId },
@@ -120,20 +112,14 @@ const exportarPDF = async (req, res) => {
         trunc(eq.tipo, 59), trunc(eq.serialNumber, 104), statusLabel(eq.status),
       ])));
     } else if (tipo === 'colabSemEquip') {
-      titulo = 'Colaboradores sem Equipamento';
-      headers = ['Nome', 'Função', 'Unidade'];
       colWidths = [200, 165, 150];
       const data = await prisma.usuario.findMany({ where: { empresaId, ativo: true, senha: null, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: { nome: 'asc' } });
       rows = data.map(u => [trunc(u.nome, 194), trunc(u.funcao, 159), trunc(u.unidade?.nome, 144)]);
     } else if (tipo === 'equipSemColab') {
-      titulo = 'Equipamentos sem Colaborador';
-      headers = ['Equipamento', 'Tipo', 'Serial', 'Status', 'Unidade'];
       colWidths = [145, 65, 110, 75, 120];
       const data = await prisma.equipamento.findMany({ where: { empresaId, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }] });
       rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 139), trunc(eq.tipo, 59), trunc(eq.serialNumber, 104), statusLabel(eq.status), trunc(eq.unidade?.nome, 114)]);
     } else if (tipo === 'preparacao') {
-      titulo = 'Preparação de Equipamentos';
-      headers = ['Equipamento', 'Serial', 'Unidade', 'Etapa', 'Dias'];
       colWidths = [150, 105, 105, 145, 40];
       const data = await prisma.equipamento.findMany({
         where: { empresaId },
@@ -145,8 +131,6 @@ const exportarPDF = async (req, res) => {
         return [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 144), trunc(eq.serialNumber, 99), trunc(eq.unidade?.nome, 99), trunc(eq.statusProcesso || 'Novo', 139), `${dias}d`];
       });
     } else if (tipo === 'agendamentos') {
-      titulo = 'Agendamentos da Semana';
-      headers = ['Equipamento', 'Serial', 'Unidade', 'Destinatário'];
       colWidths = [160, 105, 115, 185];
       const data = await prisma.equipamento.findMany({
         where: { empresaId, statusProcesso: 'Agendado para Entrega' },
