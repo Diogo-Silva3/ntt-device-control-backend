@@ -555,7 +555,8 @@ const getImprodutivos = async (req, res) => {
 // Exportar PDF de improdutivos
 const exportarImprodutivos = async (req, res) => {
   try {
-    const { formato = 'pdf' } = req.query;
+    const { formato = 'pdf', lang = 'pt' } = req.query;
+    const T = getT(lang);
     const empresaId = req.usuario.empresaId;
     const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
 
@@ -618,11 +619,27 @@ const exportarImprodutivos = async (req, res) => {
       const maxChars = Math.floor(maxPx / 5.2);
       return str.length > maxChars ? str.substring(0, maxChars - 2) + '..' : str;
     };
-    const headers = ['Colaborador', 'Unidade', 'Equipamento', 'Técnico', 'Agendado', 'Status', 'Reagend.'];
+    const impHeaders = {
+      pt: ['Colaborador', 'Unidade', 'Equipamento', 'Técnico', 'Agendado', 'Status', 'Reagend.'],
+      en: ['Employee', 'Unit', 'Equipment', 'Technician', 'Scheduled', 'Status', 'Resched.'],
+      es: ['Colaborador', 'Unidad', 'Equipo', 'Técnico', 'Programado', 'Estado', 'Reprog.'],
+    };
+    const impTitulos = {
+      pt: 'Relatório de Improdutivos — Tech Refresh',
+      en: 'Unproductive Report — Tech Refresh',
+      es: 'Informe de Improductivos — Tech Refresh',
+    };
+    const impStatus = {
+      pt: { NAO_COMPARECEU: 'Nao compareceu', ENTREGUE: 'Entregue', default: 'Pendente' },
+      en: { NAO_COMPARECEU: 'No show', ENTREGUE: 'Delivered', default: 'Pending' },
+      es: { NAO_COMPARECEU: 'No se presento', ENTREGUE: 'Entregado', default: 'Pendiente' },
+    };
+    const sl = impStatus[lang] || impStatus.pt;
+    const headers = impHeaders[lang] || impHeaders.pt;
     const colWidths = [105, 75, 95, 80, 65, 75, 45];
     const rows = atribuicoes.map(v => {
       const reagendamentos = v.reagendamentos ? JSON.parse(v.reagendamentos) : [];
-      const statusLabel = v.statusEntrega === 'NAO_COMPARECEU' ? 'Nao compareceu' : v.statusEntrega === 'ENTREGUE' ? 'Entregue' : 'Pendente';
+      const statusLabel = sl[v.statusEntrega] || sl.default;
       return [
         trunc(v.usuario?.nome, 99),
         trunc(v.usuario?.unidade?.nome, 69),
@@ -645,9 +662,9 @@ const exportarImprodutivos = async (req, res) => {
     if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 22, { height: 36, fit: [130, 36] });
     doc.moveTo(40, 70).lineTo(555, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
     doc.y = 82;
-    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text('Relatório de Improdutivos — Tech Refresh', { align: 'center' });
+    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text(impTitulos[lang] || impTitulos.pt, { align: 'center' });
     doc.fontSize(8).font('Helvetica').fillColor('#64748b')
-      .text(`${empresa?.nome || ''} · Gerado em ${new Date().toLocaleString('pt-BR')} · Total: ${rows.length} registros`, { align: 'center' });
+      .text(`${empresa?.nome || ''} · ${T.geradoEm} ${new Date().toLocaleString('pt-BR')} · ${T.total}: ${rows.length} ${T.registros}`, { align: 'center' });
     doc.moveDown(0.8);
     doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
@@ -679,14 +696,14 @@ const exportarImprodutivos = async (req, res) => {
 
     if (rows.length === 0) {
       doc.moveDown(1);
-      doc.fontSize(9).fillColor('#94a3b8').text('Nenhum registro encontrado.', 40, doc.y, { align: 'center', width: pageWidth });
+      doc.fontSize(9).fillColor('#94a3b8').text(T.nenhumRegistro, 40, doc.y, { align: 'center', width: pageWidth });
     }
 
     doc.moveDown(1);
     doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
     doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
-      .text('Tech Refresh · NTT Data · Documento gerado automaticamente', 40, doc.y, { align: 'center', width: pageWidth });
+      .text(T.rodape, 40, doc.y, { align: 'center', width: pageWidth });
     doc.end();
   } catch (err) {
     console.error(err);
