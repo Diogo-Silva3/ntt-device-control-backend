@@ -159,13 +159,12 @@ const exportarPDF = async (req, res) => {
     doc.pipe(res);
 
     const pageWidth = isLandscape ? 762 : 515;
+    const pageRightEdge = isLandscape ? 802 : 555;
     const logoNTT = path.join(__dirname, '../../logo-ntt.png');
-    const logoWick = path.join(__dirname, '../../logo-wickbold.png');
 
-    // Cabeçalho
-    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 28, { height: 32, fit: [110, 32] });
-    if (fs.existsSync(logoWick)) doc.image(logoWick, 440, 28, { height: 32, fit: [110, 32] });
-    doc.moveTo(40, 70).lineTo(555, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
+    // Cabeçalho — só logo NTT centralizada
+    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 22, { height: 36, fit: [130, 36] });
+    doc.moveTo(40, 70).lineTo(pageRightEdge, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
 
     doc.y = 82;
     doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text(titulo, { align: 'center' });
@@ -174,7 +173,7 @@ const exportarPDF = async (req, res) => {
     doc.moveDown(0.8);
 
     // Linha separadora
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    doc.moveTo(40, doc.y).lineTo(pageRightEdge, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
 
     // Cabeçalho da tabela
@@ -222,10 +221,10 @@ const exportarPDF = async (req, res) => {
 
     // Rodapé
     doc.moveDown(1);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+    doc.moveTo(40, doc.y).lineTo(pageRightEdge, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
     doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
-      .text('NTT Device Control · Wickbold · Documento gerado automaticamente', { align: 'center' });
+      .text('Tech Refresh · NTT Data · Documento gerado automaticamente', { align: 'center' });
 
     doc.end();
   } catch (err) {
