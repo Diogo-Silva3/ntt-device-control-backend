@@ -138,6 +138,36 @@ const exportarPDF = async (req, res) => {
         orderBy: { updatedAt: 'asc' },
       });
       rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 154), trunc(eq.serialNumber, 99), trunc(eq.unidade?.nome, 109), trunc(eq.vinculacoes[0]?.usuario?.nome, 179)]);
+    } else if (tipo === 'sla') {
+      colWidths = [130, 55, 90, 60, 70, 50, 70];
+      const slaData = await prisma.vinculacao.findMany({
+        where: { statusEntrega: 'ENTREGUE', usuario: { empresaId } },
+        select: {
+          dataFim: true, createdAt: true,
+          equipamento: { select: { marca: true, modelo: true, tipo: true, createdAt: true } },
+          tecnico: { select: { nome: true } },
+        },
+        orderBy: { dataFim: 'desc' },
+        take: 200,
+      });
+      rows = slaData.map(v => {
+        const diasPrep = v.equipamento?.createdAt && v.createdAt
+          ? Math.max(0, Math.floor((new Date(v.createdAt) - new Date(v.equipamento.createdAt)) / 86400000))
+          : '-';
+        const diasEntrega = v.createdAt && v.dataFim
+          ? Math.max(0, Math.floor((new Date(v.dataFim) - new Date(v.createdAt)) / 86400000))
+          : '-';
+        const total = typeof diasPrep === 'number' && typeof diasEntrega === 'number' ? diasPrep + diasEntrega : '-';
+        return [
+          trunc(`${v.equipamento?.marca || ''} ${v.equipamento?.modelo || ''}`.trim(), 124),
+          trunc(v.equipamento?.tipo, 49),
+          trunc(v.tecnico?.nome, 84),
+          typeof diasPrep === 'number' ? `${diasPrep}d` : '-',
+          typeof diasEntrega === 'number' ? `${diasEntrega}d` : '-',
+          typeof total === 'number' ? `${total}d` : '-',
+          v.dataFim ? new Date(v.dataFim).toLocaleDateString('pt-BR') : '-',
+        ];
+      });
     }
 
     // Gera PDF

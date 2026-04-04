@@ -17,6 +17,7 @@ const translations = {
       equipSemColab: 'Equipamentos sem Colaborador',
       preparacao: 'Preparação de Equipamentos',
       agendamentos: 'Agendamentos da Semana',
+      sla: 'Relatório SLA — Tech Refresh',
     },
 
     headers: {
@@ -29,6 +30,7 @@ const translations = {
       equipSemColab:['Equipamento', 'Tipo', 'Serial', 'Status', 'Unidade'],
       preparacao:   ['Equipamento', 'Serial', 'Unidade', 'Etapa', 'Dias'],
       agendamentos: ['Equipamento', 'Serial', 'Unidade', 'Destinatário'],
+      sla:          ['Equipamento', 'Tipo', 'Técnico', 'Dias Prep.', 'Dias Entrega', 'Total', 'Data Entrega'],
     },
   },
 
@@ -50,6 +52,7 @@ const translations = {
       equipSemColab: 'Equipment without Employee',
       preparacao: 'Equipment Preparation',
       agendamentos: 'This Week\'s Schedules',
+      sla: 'SLA Report — Tech Refresh',
     },
 
     headers: {
@@ -62,6 +65,7 @@ const translations = {
       equipSemColab:['Equipment', 'Type', 'Serial', 'Status', 'Unit'],
       preparacao:   ['Equipment', 'Serial', 'Unit', 'Stage', 'Days'],
       agendamentos: ['Equipment', 'Serial', 'Unit', 'Recipient'],
+      sla:          ['Equipment', 'Type', 'Technician', 'Prep Days', 'Delivery Days', 'Total', 'Delivery Date'],
     },
   },
 
@@ -83,6 +87,7 @@ const translations = {
       equipSemColab: 'Equipos sin Colaborador',
       preparacao: 'Preparación de Equipos',
       agendamentos: 'Programaciones de la Semana',
+      sla: 'Informe SLA — Tech Refresh',
     },
 
     headers: {
@@ -95,6 +100,7 @@ const translations = {
       equipSemColab:['Equipo', 'Tipo', 'Serial', 'Estado', 'Unidad'],
       preparacao:   ['Equipo', 'Serial', 'Unidad', 'Etapa', 'Días'],
       agendamentos: ['Equipo', 'Serial', 'Unidad', 'Destinatario'],
+      sla:          ['Equipo', 'Tipo', 'Técnico', 'Días Prep.', 'Días Entrega', 'Total', 'Fecha Entrega'],
     },
   },
 };
