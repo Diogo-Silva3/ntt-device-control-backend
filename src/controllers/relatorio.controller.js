@@ -54,7 +54,12 @@ const exportarPDF = async (req, res) => {
     let rows = [];
 
     const statusLabel = s => s === 'DISPONIVEL' ? 'Disponivel' : s === 'EM_USO' ? 'Em Uso' : s === 'MANUTENCAO' ? 'Manutencao' : s || '-';
-    const trunc = (s, n = 28) => { const str = String(s || '-').trim(); return str.length > n ? str.substring(0, n - 1) + '...' : str; };
+    // ~6px por caractere em fonte 7.5 Helvetica — trunca baseado na largura da coluna
+    const trunc = (s, maxPx = 100) => {
+      const str = String(s || '-').trim();
+      const maxChars = Math.floor(maxPx / 5.2);
+      return str.length > maxChars ? str.substring(0, maxChars - 2) + '..' : str;
+    };
 
     if (tipo === 'geral' || tipo === 'disponiveis') {
       titulo = tipo === 'disponiveis' ? 'Equipamentos Disponiveis' : 'Todos os Equipamentos';
@@ -69,9 +74,9 @@ const exportarPDF = async (req, res) => {
         const colab = eq.vinculacoes[0]?.usuario;
         const nomeColab = (colab && !colab.senha) ? colab.nome : '-';
         return [
-          trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 26),
-          trunc(eq.tipo, 10), trunc(eq.serialNumber, 18), trunc(eq.unidade?.nome, 20),
-          statusLabel(eq.status), trunc(nomeColab, 22),
+          trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 134),
+          trunc(eq.tipo, 49), trunc(eq.serialNumber, 99), trunc(eq.unidade?.nome, 94),
+          statusLabel(eq.status), trunc(nomeColab, 94),
         ];
       });
     } else if (tipo === 'colaboradores') {
@@ -84,8 +89,8 @@ const exportarPDF = async (req, res) => {
         orderBy: { nome: 'asc' },
       });
       rows = data.map(u => [
-        trunc(u.nome, 34), trunc(u.funcao, 24), trunc(u.unidade?.nome, 24),
-        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : 'Sem equipamento', 26),
+        trunc(u.nome, 169), trunc(u.funcao, 124), trunc(u.unidade?.nome, 124),
+        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : 'Sem equipamento', 124),
       ]);
     } else if (tipo === 'vinculacoes') {
       titulo = 'Vinculacoes Ativas';
@@ -97,9 +102,9 @@ const exportarPDF = async (req, res) => {
         orderBy: { dataInicio: 'desc' },
       });
       rows = data.map(v => [
-        trunc(v.usuario.nome, 26), trunc(v.usuario.funcao, 18), trunc(v.usuario.unidade?.nome, 20),
-        trunc(`${v.equipamento.marca || ''} ${v.equipamento.modelo || ''}`.trim(), 22),
-        trunc(v.equipamento.serialNumber, 18), new Date(v.dataInicio).toLocaleDateString('pt-BR'),
+        trunc(v.usuario.nome, 124), trunc(v.usuario.funcao, 89), trunc(v.usuario.unidade?.nome, 94),
+        trunc(`${v.equipamento.marca || ''} ${v.equipamento.modelo || ''}`.trim(), 109),
+        trunc(v.equipamento.serialNumber, 84), new Date(v.dataInicio).toLocaleDateString('pt-BR'),
       ]);
     } else if (tipo === 'porUnidade') {
       titulo = 'Equipamentos por Unidade';
@@ -111,21 +116,21 @@ const exportarPDF = async (req, res) => {
         orderBy: { nome: 'asc' },
       });
       data.forEach(u => u.equipamentos.forEach(eq => rows.push([
-        trunc(u.nome, 22), trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 28),
-        trunc(eq.tipo, 12), trunc(eq.serialNumber, 20), statusLabel(eq.status),
+        trunc(u.nome, 109), trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 139),
+        trunc(eq.tipo, 59), trunc(eq.serialNumber, 104), statusLabel(eq.status),
       ])));
     } else if (tipo === 'colabSemEquip') {
       titulo = 'Colaboradores sem Equipamento';
       headers = ['Nome', 'Função', 'Unidade'];
       colWidths = [200, 165, 150];
       const data = await prisma.usuario.findMany({ where: { empresaId, ativo: true, senha: null, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: { nome: 'asc' } });
-      rows = data.map(u => [trunc(u.nome, 38), trunc(u.funcao, 30), trunc(u.unidade?.nome, 28)]);
+      rows = data.map(u => [trunc(u.nome, 194), trunc(u.funcao, 159), trunc(u.unidade?.nome, 144)]);
     } else if (tipo === 'equipSemColab') {
       titulo = 'Equipamentos sem Colaborador';
       headers = ['Equipamento', 'Tipo', 'Serial', 'Status', 'Unidade'];
       colWidths = [145, 65, 110, 75, 120];
       const data = await prisma.equipamento.findMany({ where: { empresaId, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }] });
-      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 28), trunc(eq.tipo, 12), trunc(eq.serialNumber, 20), statusLabel(eq.status), trunc(eq.unidade?.nome, 24)]);
+      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 139), trunc(eq.tipo, 59), trunc(eq.serialNumber, 104), statusLabel(eq.status), trunc(eq.unidade?.nome, 114)]);
     } else if (tipo === 'preparacao') {
       titulo = 'Preparação de Equipamentos';
       headers = ['Equipamento', 'Serial', 'Unidade', 'Etapa', 'Dias'];
@@ -137,7 +142,7 @@ const exportarPDF = async (req, res) => {
       });
       rows = data.map(eq => {
         const dias = Math.floor((new Date() - new Date(eq.updatedAt)) / (1000 * 60 * 60 * 24));
-        return [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 28), trunc(eq.serialNumber, 20), trunc(eq.unidade?.nome, 20), trunc(eq.statusProcesso || 'Novo', 28), `${dias}d`];
+        return [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 144), trunc(eq.serialNumber, 99), trunc(eq.unidade?.nome, 99), trunc(eq.statusProcesso || 'Novo', 139), `${dias}d`];
       });
     } else if (tipo === 'agendamentos') {
       titulo = 'Agendamentos da Semana';
@@ -148,7 +153,7 @@ const exportarPDF = async (req, res) => {
         include: { unidade: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true } } }, take: 1 } },
         orderBy: { updatedAt: 'asc' },
       });
-      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 30), trunc(eq.serialNumber, 20), trunc(eq.unidade?.nome, 22), trunc(eq.vinculacoes[0]?.usuario?.nome, 36)]);
+      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 154), trunc(eq.serialNumber, 99), trunc(eq.unidade?.nome, 109), trunc(eq.vinculacoes[0]?.usuario?.nome, 179)]);
     }
 
     // Gera PDF
