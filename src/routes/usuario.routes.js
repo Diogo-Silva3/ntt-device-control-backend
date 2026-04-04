@@ -7,7 +7,7 @@ router.use(authMiddleware);
 router.get('/', ctrl.listar);
 router.get('/:id', ctrl.buscarPorId);
 router.post('/', adminMiddleware, ctrl.criar);
-router.put('/:id', adminMiddleware, ctrl.atualizar);
+router.put('/:id', ctrl.atualizar);  // admin OU o próprio usuário (validado no controller)
 router.delete('/:id', adminMiddleware, ctrl.deletar);
 
 module.exports = router;
