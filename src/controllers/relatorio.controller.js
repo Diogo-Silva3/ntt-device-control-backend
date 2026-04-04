@@ -3,6 +3,7 @@ const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
+const { getT } = require('../config/pdfTranslations');
 
 const getEquipamentosPorUnidade = async (req, res) => {
   try {
@@ -43,18 +44,17 @@ const getEquipamentosDisponiveis = async (req, res) => {
 
 const exportarPDF = async (req, res) => {
   try {
-    const { tipo = 'geral' } = req.query;
+    const { tipo = 'geral', lang = 'pt' } = req.query;
+    const T = getT(lang);
     const empresaId = req.usuario.empresaId;
     const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
 
-    // Busca dados conforme tipo
-    let titulo = 'Relatório';
-    let headers = [];
+    let titulo = T.titulos[tipo] || 'Relatório';
+    let headers = T.headers[tipo] || [];
     let colWidths = [];
     let rows = [];
 
-    const statusLabel = s => s === 'DISPONIVEL' ? 'Disponivel' : s === 'EM_USO' ? 'Em Uso' : s === 'MANUTENCAO' ? 'Manutencao' : s || '-';
-    // ~6px por caractere em fonte 7.5 Helvetica — trunca baseado na largura da coluna
+    const statusLabel = T.statusLabel;
     const trunc = (s, maxPx = 100) => {
       const str = String(s || '-').trim();
       const maxChars = Math.floor(maxPx / 5.2);
@@ -174,7 +174,7 @@ const exportarPDF = async (req, res) => {
     doc.y = 82;
     doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text(titulo, { align: 'center' });
     doc.fontSize(8).font('Helvetica').fillColor('#64748b')
-      .text(`${empresa?.nome || 'Empresa'} · Gerado em ${new Date().toLocaleString('pt-BR')} · Total: ${rows.length} registros`, { align: 'center' });
+      .text(`${empresa?.nome || 'Empresa'} · ${T.geradoEm} ${new Date().toLocaleString('pt-BR')} · ${T.total}: ${rows.length} ${T.registros}`, { align: 'center' });
     doc.moveDown(0.8);
 
     // Linha separadora
@@ -221,7 +221,7 @@ const exportarPDF = async (req, res) => {
 
     if (rows.length === 0) {
       doc.moveDown(1);
-      doc.fontSize(9).fillColor('#94a3b8').text('Nenhum registro encontrado.', { align: 'center' });
+      doc.fontSize(9).fillColor('#94a3b8').text(T.nenhumRegistro, { align: 'center' });
     }
 
     // Rodapé
@@ -229,7 +229,7 @@ const exportarPDF = async (req, res) => {
     doc.moveTo(40, doc.y).lineTo(pageRightEdge, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
     doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
-      .text('Tech Refresh · NTT Data · Documento gerado automaticamente', { align: 'center' });
+      .text(T.rodape, { align: 'center' });
 
     doc.end();
   } catch (err) {
