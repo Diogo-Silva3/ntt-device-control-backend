@@ -629,17 +629,21 @@ const exportarImprodutivos = async (req, res) => {
     }
 
     // PDF
-    const trunc = (s, n = 28) => String(s || '-').substring(0, n);
+    const trunc = (s, maxPx = 100) => {
+      const str = String(s || '-').trim();
+      const maxChars = Math.floor(maxPx / 5.2);
+      return str.length > maxChars ? str.substring(0, maxChars - 2) + '..' : str;
+    };
     const headers = ['Colaborador', 'Unidade', 'Equipamento', 'Técnico', 'Agendado', 'Status', 'Reagend.'];
-    const colWidths = [110, 80, 100, 80, 70, 90, 50];
+    const colWidths = [105, 75, 95, 80, 65, 75, 45];
     const rows = atribuicoes.map(v => {
       const reagendamentos = v.reagendamentos ? JSON.parse(v.reagendamentos) : [];
-      const statusLabel = v.statusEntrega === 'NAO_COMPARECEU' ? 'Não compareceu' : v.statusEntrega === 'ENTREGUE' ? 'Entregue' : 'Pendente';
+      const statusLabel = v.statusEntrega === 'NAO_COMPARECEU' ? 'Nao compareceu' : v.statusEntrega === 'ENTREGUE' ? 'Entregue' : 'Pendente';
       return [
-        trunc(v.usuario?.nome, 20),
-        trunc(v.usuario?.unidade?.nome, 16),
-        trunc([v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' '), 18),
-        trunc(v.tecnico?.nome, 16),
+        trunc(v.usuario?.nome, 99),
+        trunc(v.usuario?.unidade?.nome, 69),
+        trunc([v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' '), 89),
+        trunc(v.tecnico?.nome, 74),
         v.dataAgendamento ? new Date(v.dataAgendamento).toLocaleDateString('pt-BR') : '—',
         statusLabel,
         String(reagendamentos.length),
@@ -698,7 +702,7 @@ const exportarImprodutivos = async (req, res) => {
     doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
     doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
-      .text('NTT Device Control · Tech Refresh · Documento gerado automaticamente', { align: 'center' });
+      .text('Tech Refresh · NTT Data · Documento gerado automaticamente', { align: 'center' });
     doc.end();
   } catch (err) {
     console.error(err);
