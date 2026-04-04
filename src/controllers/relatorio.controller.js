@@ -188,9 +188,10 @@ const exportarPDF = async (req, res) => {
     doc.y = tableTop + 18;
 
     // Linhas da tabela
+    const pageLimit = isLandscape ? 520 : 750;
     doc.fontSize(7.5).font('Helvetica');
     rows.forEach((row, idx) => {
-      if (doc.y > 770) {
+      if (doc.y > pageLimit) {
         doc.addPage();
         // Repete cabeçalho na nova página
         const newTop = doc.y;
@@ -209,8 +210,7 @@ const exportarPDF = async (req, res) => {
         doc.text(String(cell), x + 4, rowY + 3, { width: colWidths[i] - 6, lineBreak: false });
         x += colWidths[i];
       });
-      // Linha divisória leve
-      doc.moveTo(40, rowY + 14).lineTo(555, rowY + 14).strokeColor('#f1f5f9').lineWidth(0.3).stroke();
+      doc.moveTo(40, rowY + 14).lineTo(pageRightEdge, rowY + 14).strokeColor('#f1f5f9').lineWidth(0.3).stroke();
       doc.y = rowY + 15;
     });
 
