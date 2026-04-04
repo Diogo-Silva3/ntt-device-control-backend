@@ -53,108 +53,112 @@ const exportarPDF = async (req, res) => {
     let colWidths = [];
     let rows = [];
 
-    const statusLabel = s => s === 'DISPONIVEL' ? 'Disponível' : s === 'EM_USO' ? 'Em Uso' : s === 'MANUTENCAO' ? 'Manutenção' : s || '-';
-    const trunc = (s, n = 28) => String(s || '-').substring(0, n);
+    const statusLabel = s => s === 'DISPONIVEL' ? 'Disponivel' : s === 'EM_USO' ? 'Em Uso' : s === 'MANUTENCAO' ? 'Manutencao' : s || '-';
+    const trunc = (s, n = 28) => { const str = String(s || '-').trim(); return str.length > n ? str.substring(0, n - 1) + '...' : str; };
 
     if (tipo === 'geral' || tipo === 'disponiveis') {
-      titulo = tipo === 'disponiveis' ? 'Equipamentos Disponíveis' : 'Todos os Equipamentos';
+      titulo = tipo === 'disponiveis' ? 'Equipamentos Disponiveis' : 'Todos os Equipamentos';
       headers = ['Marca / Modelo', 'Tipo', 'Serial', 'Unidade', 'Status', 'Colaborador'];
-      colWidths = [130, 60, 105, 90, 70, 80];
+      colWidths = [140, 55, 105, 100, 65, 100];
       const data = await prisma.equipamento.findMany({
         where: { empresaId, ...(tipo === 'disponiveis' && { status: 'DISPONIVEL' }) },
-        include: { unidade: true, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true } } } } },
+        include: { unidade: true, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true, senha: true } } } } },
         orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }],
       });
-      rows = data.map(eq => [
-        trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim()),
-        trunc(eq.tipo, 12), trunc(eq.serialNumber, 18), trunc(eq.unidade?.nome, 18),
-        statusLabel(eq.status), trunc(eq.vinculacoes[0]?.usuario?.nome, 20),
-      ]);
+      rows = data.map(eq => {
+        const colab = eq.vinculacoes[0]?.usuario;
+        const nomeColab = (colab && !colab.senha) ? colab.nome : '-';
+        return [
+          trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 26),
+          trunc(eq.tipo, 10), trunc(eq.serialNumber, 18), trunc(eq.unidade?.nome, 20),
+          statusLabel(eq.status), trunc(nomeColab, 22),
+        ];
+      });
     } else if (tipo === 'colaboradores') {
       titulo = 'Todos os Colaboradores';
-      headers = ['Nome', 'Função', 'Email', 'Unidade', 'Equipamento'];
-      colWidths = [120, 90, 120, 90, 115];
+      headers = ['Nome', 'Funcao', 'Unidade', 'Equipamento'];
+      colWidths = [175, 130, 130, 130];
       const data = await prisma.usuario.findMany({
-        where: { empresaId, ativo: true },
-        include: { unidade: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { equipamento: { select: { marca: true, modelo: true, serialNumber: true } } } } },
+        where: { empresaId, ativo: true, senha: null },
+        include: { unidade: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { equipamento: { select: { marca: true, modelo: true } } } } },
         orderBy: { nome: 'asc' },
       });
       rows = data.map(u => [
-        trunc(u.nome, 22), trunc(u.funcao, 18), trunc(u.email, 24), trunc(u.unidade?.nome, 18),
-        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : 'Sem equipamento', 22),
+        trunc(u.nome, 34), trunc(u.funcao, 24), trunc(u.unidade?.nome, 24),
+        trunc(u.vinculacoes[0] ? `${u.vinculacoes[0].equipamento.marca || ''} ${u.vinculacoes[0].equipamento.modelo || ''}`.trim() : 'Sem equipamento', 26),
       ]);
     } else if (tipo === 'vinculacoes') {
-      titulo = 'Vinculações Ativas';
-      headers = ['Colaborador', 'Função', 'Unidade', 'Equipamento', 'Serial', 'Desde'];
-      colWidths = [110, 80, 85, 100, 85, 75];
+      titulo = 'Vinculacoes Ativas';
+      headers = ['Colaborador', 'Funcao', 'Unidade', 'Equipamento', 'Serial', 'Desde'];
+      colWidths = [130, 95, 100, 115, 90, 55];
       const data = await prisma.vinculacao.findMany({
-        where: { ativa: true, usuario: { empresaId } },
+        where: { ativa: true, usuario: { empresaId, senha: null } },
         include: { usuario: { select: { nome: true, funcao: true, unidade: { select: { nome: true } } } }, equipamento: { select: { marca: true, modelo: true, serialNumber: true } } },
         orderBy: { dataInicio: 'desc' },
       });
       rows = data.map(v => [
-        trunc(v.usuario.nome, 20), trunc(v.usuario.funcao, 16), trunc(v.usuario.unidade?.nome, 16),
-        trunc(`${v.equipamento.marca || ''} ${v.equipamento.modelo || ''}`.trim(), 20),
-        trunc(v.equipamento.serialNumber, 16), new Date(v.dataInicio).toLocaleDateString('pt-BR'),
+        trunc(v.usuario.nome, 26), trunc(v.usuario.funcao, 18), trunc(v.usuario.unidade?.nome, 20),
+        trunc(`${v.equipamento.marca || ''} ${v.equipamento.modelo || ''}`.trim(), 22),
+        trunc(v.equipamento.serialNumber, 18), new Date(v.dataInicio).toLocaleDateString('pt-BR'),
       ]);
     } else if (tipo === 'porUnidade') {
       titulo = 'Equipamentos por Unidade';
       headers = ['Unidade', 'Equipamento', 'Tipo', 'Serial', 'Status'];
-      colWidths = [110, 130, 70, 110, 80];
+      colWidths = [115, 145, 65, 110, 80];
       const data = await prisma.unidade.findMany({
         where: { empresaId },
         include: { equipamentos: { select: { tipo: true, marca: true, modelo: true, serialNumber: true, status: true } } },
         orderBy: { nome: 'asc' },
       });
       data.forEach(u => u.equipamentos.forEach(eq => rows.push([
-        trunc(u.nome, 20), trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 24),
-        trunc(eq.tipo, 14), trunc(eq.serialNumber, 20), statusLabel(eq.status),
+        trunc(u.nome, 22), trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 28),
+        trunc(eq.tipo, 12), trunc(eq.serialNumber, 20), statusLabel(eq.status),
       ])));
     } else if (tipo === 'colabSemEquip') {
       titulo = 'Colaboradores sem Equipamento';
-      headers = ['Nome', 'Função', 'Email', 'Unidade'];
-      colWidths = [140, 110, 150, 135];
-      const data = await prisma.usuario.findMany({ where: { empresaId, ativo: true, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: { nome: 'asc' } });
-      rows = data.map(u => [trunc(u.nome, 26), trunc(u.funcao, 20), trunc(u.email, 28), trunc(u.unidade?.nome, 24)]);
+      headers = ['Nome', 'Função', 'Unidade'];
+      colWidths = [200, 165, 150];
+      const data = await prisma.usuario.findMany({ where: { empresaId, ativo: true, senha: null, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: { nome: 'asc' } });
+      rows = data.map(u => [trunc(u.nome, 38), trunc(u.funcao, 30), trunc(u.unidade?.nome, 28)]);
     } else if (tipo === 'equipSemColab') {
       titulo = 'Equipamentos sem Colaborador';
       headers = ['Equipamento', 'Tipo', 'Serial', 'Status', 'Unidade'];
-      colWidths = [140, 70, 110, 80, 135];
+      colWidths = [145, 65, 110, 75, 120];
       const data = await prisma.equipamento.findMany({ where: { empresaId, vinculacoes: { none: { ativa: true } } }, include: { unidade: { select: { nome: true } } }, orderBy: [{ unidade: { nome: 'asc' } }, { marca: 'asc' }] });
-      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 26), trunc(eq.tipo, 14), trunc(eq.serialNumber, 20), statusLabel(eq.status), trunc(eq.unidade?.nome, 24)]);
+      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 28), trunc(eq.tipo, 12), trunc(eq.serialNumber, 20), statusLabel(eq.status), trunc(eq.unidade?.nome, 24)]);
     } else if (tipo === 'preparacao') {
       titulo = 'Preparação de Equipamentos';
-      headers = ['Equipamento', 'Serial', 'Unidade', 'Etapa', 'Técnico', 'Dias'];
-      colWidths = [120, 90, 90, 110, 80, 45];
-      const ORDEM = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega', 'Entregue ao Usuário'];
+      headers = ['Equipamento', 'Serial', 'Unidade', 'Etapa', 'Dias'];
+      colWidths = [150, 105, 105, 145, 40];
       const data = await prisma.equipamento.findMany({
         where: { empresaId },
-        select: { marca: true, modelo: true, serialNumber: true, statusProcesso: true, updatedAt: true, unidade: { select: { nome: true } }, tecnico: { select: { nome: true } } },
+        select: { marca: true, modelo: true, serialNumber: true, statusProcesso: true, updatedAt: true, unidade: { select: { nome: true } } },
         orderBy: { updatedAt: 'desc' },
       });
       rows = data.map(eq => {
         const dias = Math.floor((new Date() - new Date(eq.updatedAt)) / (1000 * 60 * 60 * 24));
-        return [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 22), trunc(eq.serialNumber, 16), trunc(eq.unidade?.nome, 16), trunc(eq.statusProcesso || 'Novo', 20), trunc(eq.tecnico?.nome, 16), `${dias}d`];
+        return [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 28), trunc(eq.serialNumber, 20), trunc(eq.unidade?.nome, 20), trunc(eq.statusProcesso || 'Novo', 28), `${dias}d`];
       });
     } else if (tipo === 'agendamentos') {
       titulo = 'Agendamentos da Semana';
-      headers = ['Equipamento', 'Serial', 'Unidade', 'Destinatário', 'Técnico'];
-      colWidths = [120, 90, 90, 120, 115];
+      headers = ['Equipamento', 'Serial', 'Unidade', 'Destinatário'];
+      colWidths = [160, 105, 115, 185];
       const data = await prisma.equipamento.findMany({
         where: { empresaId, statusProcesso: 'Agendado para Entrega' },
-        include: { unidade: { select: { nome: true } }, tecnico: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true } } }, take: 1 } },
+        include: { unidade: { select: { nome: true } }, vinculacoes: { where: { ativa: true }, include: { usuario: { select: { nome: true } } }, take: 1 } },
         orderBy: { updatedAt: 'asc' },
       });
-      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 22), trunc(eq.serialNumber, 16), trunc(eq.unidade?.nome, 16), trunc(eq.vinculacoes[0]?.usuario?.nome, 22), trunc(eq.tecnico?.nome, 20)]);
+      rows = data.map(eq => [trunc(`${eq.marca || ''} ${eq.modelo || ''}`.trim(), 30), trunc(eq.serialNumber, 20), trunc(eq.unidade?.nome, 22), trunc(eq.vinculacoes[0]?.usuario?.nome, 36)]);
     }
 
     // Gera PDF
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const isLandscape = ['geral', 'disponiveis', 'vinculacoes', 'colaboradores', 'preparacao', 'agendamentos'].includes(tipo)
+    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: isLandscape ? 'landscape' : 'portrait' });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=relatorio-${tipo}-${Date.now()}.pdf`);
     doc.pipe(res);
 
-    const pageWidth = 515;
+    const pageWidth = isLandscape ? 762 : 515;
     const logoNTT = path.join(__dirname, '../../logo-ntt.png');
     const logoWick = path.join(__dirname, '../../logo-wickbold.png');
 
