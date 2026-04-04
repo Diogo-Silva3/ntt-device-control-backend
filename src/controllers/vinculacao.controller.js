@@ -1,5 +1,5 @@
 const prisma = require('../config/prisma');
-const { enviarEmail, templateAgendamento, templateReagendamento } = require('../config/email');
+const { enviarEmail, templateAgendamento, templateReagendamento, templateEntregue, templateLembrete } = require('../config/email');
 
 const includeCompleto = {
   usuario: { select: { id: true, nome: true, funcao: true, unidade: true } },
@@ -230,6 +230,21 @@ const marcarEntregue = async (req, res) => {
       data: { statusEntrega: 'ENTREGUE', dataFim: new Date() },
       include: includeCompleto,
     });
+
+    // Email de confirmação de entrega
+    if (atualizada.usuario?.email) {
+      const eq = atualizada.equipamento;
+      enviarEmail({
+        para: atualizada.usuario.email,
+        assunto: 'Tech Refresh - Equipamento entregue',
+        html: templateEntregue({
+          colaborador: atualizada.usuario.nome,
+          equipamento: `${eq?.marca || ''} ${eq?.modelo || ''}`.trim() || 'Equipamento',
+          tecnico: atualizada.tecnico?.nome,
+        }),
+      }).catch(err => console.error('[EMAIL] Erro ao enviar:', err.message));
+    }
+
     res.json(atualizada);
   } catch (err) {
     res.status(500).json({ error: 'Erro ao marcar como entregue' });

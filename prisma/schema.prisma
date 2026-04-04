@@ -134,6 +134,7 @@ model Vinculacao {
   dataAgendamento DateTime?   @map("data_agendamento")
   reagendamentos  String?
   statusEntrega   String?     @default("PENDENTE") @map("status_entrega")
+  lembreteEnviado Boolean     @default(false) @map("lembrete_enviado")
   usuario         Usuario     @relation(fields: [usuarioId], references: [id])
   equipamento     Equipamento @relation(fields: [equipamentoId], references: [id])
   tecnico         Usuario?    @relation("TecnicoAtribuicoes", fields: [tecnicoId], references: [id])

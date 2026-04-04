@@ -16,6 +16,7 @@ const clienteRoutes = require('./routes/cliente.routes');
 const projetoRoutes = require('./routes/projeto.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
+const { iniciarCron } = require('./config/cron');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -81,6 +82,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  iniciarCron();
 });
 
 module.exports = app;
