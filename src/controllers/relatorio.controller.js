@@ -653,10 +653,8 @@ const exportarImprodutivos = async (req, res) => {
 
     const pageWidth = 515;
     const logoNTT = path.join(__dirname, '../../logo-ntt.png');
-    const logoWick = path.join(__dirname, '../../logo-wickbold.png');
 
-    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 28, { height: 32, fit: [110, 32] });
-    if (fs.existsSync(logoWick)) doc.image(logoWick, 440, 28, { height: 32, fit: [110, 32] });
+    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 22, { height: 36, fit: [130, 36] });
     doc.moveTo(40, 70).lineTo(555, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
     doc.y = 82;
     doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text('Relatório de Improdutivos — Tech Refresh', { align: 'center' });
