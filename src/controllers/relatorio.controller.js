@@ -695,14 +695,14 @@ const exportarImprodutivos = async (req, res) => {
 
     if (rows.length === 0) {
       doc.moveDown(1);
-      doc.fontSize(9).fillColor('#94a3b8').text('Nenhum registro encontrado.', { align: 'center' });
+      doc.fontSize(9).fillColor('#94a3b8').text('Nenhum registro encontrado.', 40, doc.y, { align: 'center', width: pageWidth });
     }
 
     doc.moveDown(1);
     doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
     doc.moveDown(0.5);
     doc.fontSize(7.5).fillColor('#94a3b8').font('Helvetica')
-      .text('Tech Refresh · NTT Data · Documento gerado automaticamente', { align: 'center' });
+      .text('Tech Refresh · NTT Data · Documento gerado automaticamente', 40, doc.y, { align: 'center', width: pageWidth });
     doc.end();
   } catch (err) {
     console.error(err);
