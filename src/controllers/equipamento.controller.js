@@ -3,6 +3,19 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
+const calcularStatusGarantia = (dataGarantia) => {
+  if (!dataGarantia) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const vencimento = new Date(dataGarantia);
+  vencimento.setHours(0, 0, 0, 0);
+  const trintaDias = new Date(hoje);
+  trintaDias.setDate(trintaDias.getDate() + 30);
+  if (vencimento < hoje) return 'GARANTIA_VENCIDA';
+  if (vencimento <= trintaDias) return 'GARANTIA_VENCENDO';
+  return null;
+};
+
 const PROCESSO_STEPS = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega', 'Entregue ao Usuário', 'Em Uso', 'Em Manutenção', 'Baixado'];
 
 const CHECKLIST_PREPARACAO = ['imagem', 'drivers', 'office', 'antivirus', 'vpn', 'monitoramento', 'rede', 'login'];
@@ -144,14 +157,13 @@ const criar = async (req, res) => {
 
 const atualizar = async (req, res) => {
   try {
-    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, comentarioEtapa } = req.body;
+    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa } = req.body;
     const id = parseInt(req.params.id);
 
     // Se mudou statusProcesso, registra no histórico de etapas
     if (statusProcesso !== undefined) {
       const atual = await prisma.equipamento.findUnique({ where: { id }, select: { statusProcesso: true, historicoEtapas: true } });
       if (atual && atual.statusProcesso !== statusProcesso) {
-        // Salva histórico da etapa no campo dedicado historicoEtapas
         let etapasLog = [];
         try { etapasLog = atual.historicoEtapas ? JSON.parse(atual.historicoEtapas) : []; } catch { etapasLog = []; }
         if (!Array.isArray(etapasLog)) etapasLog = [];
@@ -166,7 +178,6 @@ const atualizar = async (req, res) => {
         });
         await prisma.equipamento.update({ where: { id }, data: { historicoEtapas: JSON.stringify(etapasLog) } });
 
-        // Registra no histórico geral
         await prisma.historico.create({
           data: {
             equipamentoId: id,
@@ -178,17 +189,54 @@ const atualizar = async (req, res) => {
       }
     }
 
-    const equipamento = await prisma.equipamento.update({
-      where: { id },
-      data: {
-        tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
-        ...(statusProcesso !== undefined && { statusProcesso }),
-        ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
-        unidadeId: unidadeId !== undefined ? (unidadeId ? parseInt(unidadeId) : null) : undefined,
-        tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
-      },
-      include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
-    });
+    // Se mudou unidadeId, registra HistoricoLocalizacao dentro de uma transação
+    let equipamento;
+    if (unidadeId !== undefined) {
+      const novaUnidadeId = unidadeId ? parseInt(unidadeId) : null;
+      const atual = await prisma.equipamento.findUnique({ where: { id }, select: { unidadeId: true } });
+      const unidadeAnteriorId = atual ? atual.unidadeId : null;
+      const unidadeMudou = unidadeAnteriorId !== novaUnidadeId;
+
+      [equipamento] = await prisma.$transaction(async (tx) => {
+        const eq = await tx.equipamento.update({
+          where: { id },
+          data: {
+            tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
+            ...(statusProcesso !== undefined && { statusProcesso }),
+            ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
+            ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
+            unidadeId: novaUnidadeId,
+            tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
+          },
+          include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
+        });
+
+        if (unidadeMudou) {
+          await tx.historicoLocalizacao.create({
+            data: {
+              equipamentoId: id,
+              unidadeAnteriorId,
+              unidadeNovaId: novaUnidadeId,
+              tecnicoId: req.usuario.id,
+            },
+          });
+        }
+
+        return [eq];
+      });
+    } else {
+      equipamento = await prisma.equipamento.update({
+        where: { id },
+        data: {
+          tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
+          ...(statusProcesso !== undefined && { statusProcesso }),
+          ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
+          ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
+          tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
+        },
+        include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
+      });
+    }
 
     res.json(equipamento);
   } catch (err) {
@@ -344,4 +392,48 @@ const uploadFoto = async (req, res) => {
   }
 };
 
-module.exports = { listar, buscarPorId, criar, atualizar, atualizarChecklist, atualizarAgendamento, deletar, qrcode, regenerarQrCodes, uploadFoto };
+const alertasGarantia = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const hoje = new Date();
+    const trintaDias = new Date();
+    trintaDias.setDate(trintaDias.getDate() + 30);
+    const equipamentos = await prisma.equipamento.findMany({
+      where: {
+        empresaId,
+        dataGarantia: { not: null, lte: trintaDias },
+      },
+      include: { unidade: { select: { nome: true } } },
+      orderBy: { dataGarantia: 'asc' },
+    });
+    const resultado = equipamentos.map(eq => ({
+      ...eq,
+      statusGarantia: calcularStatusGarantia(eq.dataGarantia),
+    })).filter(eq => eq.statusGarantia !== null);
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar alertas de garantia' });
+  }
+};
+
+const historicoLocalizacao = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    const eq = await prisma.equipamento.findFirst({ where: { id, empresaId: req.usuario.empresaId } })
+    if (!eq) return res.status(404).json({ error: 'Equipamento não encontrado' })
+    const historico = await prisma.historicoLocalizacao.findMany({
+      where: { equipamentoId: id },
+      include: {
+        unidadeAnterior: { select: { nome: true } },
+        unidadeNova: { select: { nome: true } },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    res.json(historico)
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar histórico de localização' })
+  }
+}
+
+module.exports = { listar, buscarPorId, criar, atualizar, atualizarChecklist, atualizarAgendamento, deletar, qrcode, regenerarQrCodes, uploadFoto, alertasGarantia, historicoLocalizacao };

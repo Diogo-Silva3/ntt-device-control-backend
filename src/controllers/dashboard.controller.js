@@ -201,4 +201,43 @@ const getDashboard = async (req, res) => {
   }
 };
 
-module.exports = { getDashboard };
+const dashboardTecnicos = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const { mes } = req.query;
+    let dataInicio, dataFim;
+    if (mes) {
+      if (!/^\d{4}-\d{2}$/.test(mes)) return res.status(400).json({ error: 'Formato de mês inválido. Use YYYY-MM' });
+      const [ano, m] = mes.split('-').map(Number);
+      dataInicio = new Date(ano, m - 1, 1);
+      dataFim = new Date(ano, m, 0, 23, 59, 59);
+    } else {
+      const agora = new Date();
+      dataInicio = new Date(agora.getFullYear(), agora.getMonth(), 1);
+      dataFim = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
+    }
+    const inicio6m = new Date(dataInicio);
+    inicio6m.setMonth(inicio6m.getMonth() - 5);
+
+    const tecnicos = await prisma.usuario.findMany({
+      where: { empresaId, ativo: true, senha: { not: null }, role: { in: ['TECNICO', 'ADMIN'] } },
+      select: { id: true, nome: true },
+    });
+
+    const resultado = await Promise.all(tecnicos.map(async tec => {
+      const [totalMes, total6m] = await Promise.all([
+        prisma.vinculacao.count({ where: { tecnicoId: tec.id, statusEntrega: 'ENTREGUE', dataFim: { gte: dataInicio, lte: dataFim } } }),
+        prisma.vinculacao.count({ where: { tecnicoId: tec.id, statusEntrega: 'ENTREGUE', dataFim: { gte: inicio6m, lte: dataFim } } }),
+      ]);
+      return { ...tec, totalMesAtual: totalMes, total6Meses: total6m, mediaMensal: Math.round(total6m / 6 * 10) / 10 };
+    }));
+
+    resultado.sort((a, b) => b.totalMesAtual - a.totalMesAtual);
+    res.json(resultado);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar dashboard de técnicos' });
+  }
+};
+
+module.exports = { getDashboard, dashboardTecnicos };

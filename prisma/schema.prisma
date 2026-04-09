@@ -54,6 +54,8 @@ model Unidade {
   updatedAt    DateTime      @updatedAt @map("updated_at")
   usuarios     Usuario[]
   equipamentos Equipamento[]
+  historicoLocAnterior HistoricoLocalizacao[] @relation("HistoricoLocAnterior")
+  historicoLocNova     HistoricoLocalizacao[] @relation("HistoricoLocNova")
 
   @@unique([nome, empresaId])
   @@map("unidades")
@@ -82,6 +84,7 @@ model Usuario {
   chamados             Chamado[]
   equipamentosTecnico  Equipamento[] @relation("TecnicoEquipamentos")
   atribuicoesTecnico   Vinculacao[]  @relation("TecnicoAtribuicoes")
+  historicoLocalizacao HistoricoLocalizacao[]
 
   @@map("usuarios")
 }
@@ -104,6 +107,7 @@ model Equipamento {
   observacao           String?
   qrCode               String?      @map("qr_code")
   foto                 String?
+  dataGarantia         DateTime?    @map("data_garantia")
   unidadeId            Int?         @map("unidade_id")
   empresaId            Int          @map("empresa_id")
   projetoId            Int?         @map("projeto_id")
@@ -116,6 +120,7 @@ model Equipamento {
   vinculacoes          Vinculacao[]
   historicos           Historico[]
   chamados             Chamado[]
+  historicoLocalizacao HistoricoLocalizacao[]
 
   @@map("equipamentos")
 }
@@ -139,6 +144,7 @@ model Vinculacao {
   statusEntrega   String?     @default("PENDENTE") @map("status_entrega")
   lembreteEnviado Boolean     @default(false) @map("lembrete_enviado")
   assinatura      String?
+  checklistDevolucao String? @map("checklist_devolucao")
   usuario         Usuario     @relation(fields: [usuarioId], references: [id])
   equipamento     Equipamento @relation(fields: [equipamentoId], references: [id])
   tecnico         Usuario?    @relation("TecnicoAtribuicoes", fields: [tecnicoId], references: [id])
@@ -180,4 +186,20 @@ model Chamado {
 
   @@index([empresaId])
   @@map("chamados")
+}
+
+model HistoricoLocalizacao {
+  id                Int       @id @default(autoincrement())
+  equipamentoId     Int       @map("equipamento_id")
+  unidadeAnteriorId Int?      @map("unidade_anterior_id")
+  unidadeNovaId     Int?      @map("unidade_nova_id")
+  tecnicoId         Int?      @map("tecnico_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  equipamento       Equipamento @relation(fields: [equipamentoId], references: [id])
+  unidadeAnterior   Unidade?    @relation("HistoricoLocAnterior", fields: [unidadeAnteriorId], references: [id])
+  unidadeNova       Unidade?    @relation("HistoricoLocNova", fields: [unidadeNovaId], references: [id])
+  tecnico           Usuario?    @relation(fields: [tecnicoId], references: [id])
+
+  @@map("historico_localizacao")
 }

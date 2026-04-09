@@ -892,6 +892,136 @@ const gerarEtiquetas = async (req, res) => {
   }
 };
 
+const getRelatorioAssinaturas = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const atribuicoes = await prisma.vinculacao.findMany({
+      where: { usuario: { empresaId }, assinatura: { not: null } },
+      include: {
+        usuario: { select: { nome: true, funcao: true, unidade: { select: { nome: true } } } },
+        equipamento: { select: { marca: true, modelo: true, serialNumber: true } },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { dataFim: 'desc' },
+    });
+    res.json(atribuicoes);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar relatório de assinaturas' });
+  }
+};
+
+const exportarAssinaturasPDF = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+    const atribuicoes = await prisma.vinculacao.findMany({
+      where: { usuario: { empresaId }, assinatura: { not: null } },
+      include: {
+        usuario: { select: { nome: true, funcao: true, unidade: { select: { nome: true } } } },
+        equipamento: { select: { marca: true, modelo: true, serialNumber: true } },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { dataFim: 'desc' },
+    });
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4', layout: 'portrait' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=assinaturas-${Date.now()}.pdf`);
+    doc.pipe(res);
+
+    const logoNTT = path.join(__dirname, '../../logo-ntt.png');
+    if (fs.existsSync(logoNTT)) doc.image(logoNTT, 40, 22, { height: 36, fit: [130, 36] });
+    doc.moveTo(40, 70).lineTo(555, 70).strokeColor('#e2e8f0').lineWidth(1).stroke();
+    doc.y = 82;
+    doc.fontSize(15).font('Helvetica-Bold').fillColor('#1e293b').text('Relatório de Assinaturas', { align: 'center' });
+    doc.fontSize(8).font('Helvetica').fillColor('#64748b')
+      .text(`${empresa?.nome || 'Empresa'} · Gerado em ${new Date().toLocaleString('pt-BR')} · Total: ${atribuicoes.length} registros`, { align: 'center' });
+    doc.moveDown(1);
+
+    for (const v of atribuicoes) {
+      if (doc.y > 700) doc.addPage();
+      const startY = doc.y;
+      doc.rect(40, startY, 515, 1).fill('#e2e8f0');
+      doc.y = startY + 6;
+
+      doc.fontSize(9).font('Helvetica-Bold').fillColor('#1e293b')
+        .text(`${v.usuario?.nome || '—'}`, 40, doc.y, { continued: true })
+        .font('Helvetica').fillColor('#64748b')
+        .text(`  ·  ${v.usuario?.funcao || '—'}  ·  ${v.usuario?.unidade?.nome || '—'}`);
+
+      doc.fontSize(8).font('Helvetica').fillColor('#334155')
+        .text(`Equipamento: ${[v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' ') || '—'}  |  Serial: ${v.equipamento?.serialNumber || '—'}  |  Técnico: ${v.tecnico?.nome || '—'}  |  Data: ${v.dataFim ? new Date(v.dataFim).toLocaleDateString('pt-BR') : '—'}`);
+
+      if (v.assinatura) {
+        try {
+          const base64Data = v.assinatura.includes(',') ? v.assinatura.split(',')[1] : v.assinatura;
+          const buf = Buffer.from(base64Data, 'base64');
+          doc.image(buf, 40, doc.y + 4, { height: 50, fit: [200, 50] });
+          doc.y = doc.y + 60;
+        } catch {}
+      }
+      doc.moveDown(0.5);
+    }
+
+    if (atribuicoes.length === 0) {
+      doc.moveDown(2);
+      doc.fontSize(10).fillColor('#94a3b8').text('Nenhuma assinatura registrada', { align: 'center' });
+    }
+
+    doc.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar PDF de assinaturas' });
+  }
+};
+
+const exportarAssinaturasExcel = async (req, res) => {
+  try {
+    const empresaId = req.usuario.empresaId;
+    const atribuicoes = await prisma.vinculacao.findMany({
+      where: { usuario: { empresaId }, assinatura: { not: null } },
+      include: {
+        usuario: { select: { nome: true, funcao: true, unidade: { select: { nome: true } } } },
+        equipamento: { select: { marca: true, modelo: true, serialNumber: true } },
+        tecnico: { select: { nome: true } },
+      },
+      orderBy: { dataFim: 'desc' },
+    });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Assinaturas');
+    sheet.columns = [
+      { header: 'Colaborador', key: 'colaborador', width: 30 },
+      { header: 'Equipamento', key: 'equipamento', width: 25 },
+      { header: 'Serial', key: 'serial', width: 20 },
+      { header: 'Técnico', key: 'tecnico', width: 20 },
+      { header: 'Data de Entrega', key: 'dataEntrega', width: 18 },
+      { header: 'Assinatura', key: 'assinatura', width: 12 },
+    ];
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E40AF' } };
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+    atribuicoes.forEach(v => {
+      sheet.addRow({
+        colaborador: v.usuario?.nome || '',
+        equipamento: [v.equipamento?.marca, v.equipamento?.modelo].filter(Boolean).join(' '),
+        serial: v.equipamento?.serialNumber || '',
+        tecnico: v.tecnico?.nome || '',
+        dataEntrega: v.dataFim ? new Date(v.dataFim).toLocaleDateString('pt-BR') : '—',
+        assinatura: v.assinatura ? 'Sim' : 'Não',
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=assinaturas-${Date.now()}.xlsx`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao gerar Excel de assinaturas' });
+  }
+};
+
 module.exports = {
   getEquipamentosPorUnidade,
   getEquipamentosDisponiveis,
@@ -908,4 +1038,7 @@ module.exports = {
   exportarImprodutivos,
   gerarEtiquetas,
   getSLA,
+  getRelatorioAssinaturas,
+  exportarAssinaturasPDF,
+  exportarAssinaturasExcel,
 };

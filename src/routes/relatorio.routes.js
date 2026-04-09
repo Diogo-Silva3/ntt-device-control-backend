@@ -19,5 +19,8 @@ router.get('/improdutivos', ctrl.getImprodutivos);
 router.get('/exportar/improdutivos', ctrl.exportarImprodutivos);
 router.get('/exportar/etiquetas', ctrl.gerarEtiquetas);
 router.get('/sla', ctrl.getSLA);
+router.get('/assinaturas', ctrl.getRelatorioAssinaturas);
+router.get('/assinaturas/pdf', ctrl.exportarAssinaturasPDF);
+router.get('/assinaturas/excel', ctrl.exportarAssinaturasExcel);
 
 module.exports = router;

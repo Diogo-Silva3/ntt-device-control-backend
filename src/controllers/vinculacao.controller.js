@@ -110,7 +110,11 @@ const criar = async (req, res) => {
 const encerrar = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { observacao } = req.body;
+    const { observacao, checklistDevolucao } = req.body;
+
+    if (!checklistDevolucao) {
+      return res.status(400).json({ error: 'Checklist de devolução é obrigatório para encerrar a atribuição' });
+    }
 
     const vinculacao = await prisma.vinculacao.findUnique({
       where: { id },
@@ -118,11 +122,16 @@ const encerrar = async (req, res) => {
     });
     if (!vinculacao) return res.status(404).json({ error: 'Atribuição não encontrada' });
 
+    const checklistStr = typeof checklistDevolucao === 'string'
+      ? checklistDevolucao
+      : JSON.stringify(checklistDevolucao);
+
     const atualizada = await prisma.vinculacao.update({
       where: { id },
       data: {
         ativa: false,
         dataFim: new Date(),
+        checklistDevolucao: checklistStr,
         ...(observacao && { observacao }),
         ...(vinculacao.statusEntrega === 'PENDENTE' && { statusEntrega: 'ENTREGUE' }),
       },
@@ -133,12 +142,19 @@ const encerrar = async (req, res) => {
       data: { status: 'DISPONIVEL' },
     });
 
+    const checklist = typeof checklistDevolucao === 'string'
+      ? JSON.parse(checklistDevolucao)
+      : checklistDevolucao;
+
+    const temProblema = checklist.estadoFisico === 'com_danos_visiveis' || checklist.funcionamento === 'com_problemas';
+    const acaoHistorico = temProblema ? 'DEVOLUCAO_COM_PROBLEMA' : 'DEVOLUCAO_OK';
+
     await prisma.historico.create({
       data: {
         equipamentoId: vinculacao.equipamentoId,
         usuarioId: vinculacao.usuarioId,
-        acao: 'DESATRIBUIDO',
-        descricao: `Equipamento desatribuído do usuário ${vinculacao.usuario.nome}${observacao ? `. Obs: ${observacao}` : ''}`,
+        acao: acaoHistorico,
+        descricao: `Equipamento devolvido pelo usuário ${vinculacao.usuario.nome}${observacao ? `. Obs: ${observacao}` : ''}. Estado: ${checklist.estadoFisico || '—'}. Funcionamento: ${checklist.funcionamento || '—'}`,
         dataFim: new Date(),
       },
     });
@@ -273,4 +289,62 @@ const atualizarTecnico = async (req, res) => {
   }
 };
 
-module.exports = { listar, criar, encerrar, reagendar, marcarNaoCompareceu, marcarEntregue, atualizarTecnico };
+const transferir = async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { usuarioDestinoId } = req.body;
+
+    if (!usuarioDestinoId) return res.status(400).json({ error: 'Colaborador de destino é obrigatório' });
+
+    // Busca atribuição ativa
+    const vinculacaoAtiva = await prisma.vinculacao.findFirst({
+      where: { id, ativa: true },
+      include: { usuario: true, equipamento: true, tecnico: true },
+    });
+    if (!vinculacaoAtiva) return res.status(400).json({ error: 'Equipamento não possui atribuição ativa para transferir' });
+
+    // Valida colaborador de destino
+    const destino = await prisma.usuario.findFirst({ where: { id: parseInt(usuarioDestinoId), ativo: true } });
+    if (!destino) return res.status(400).json({ error: 'Colaborador de destino não encontrado ou inativo' });
+
+    // Verifica se destino já tem equipamento
+    const atribuicaoDestino = await prisma.vinculacao.findFirst({ where: { usuarioId: destino.id, ativa: true } });
+    if (atribuicaoDestino) return res.status(400).json({ error: 'Colaborador de destino já possui equipamento atribuído' });
+
+    const novaVinculacao = await prisma.$transaction(async (tx) => {
+      // Encerra atribuição atual
+      await tx.vinculacao.update({ where: { id }, data: { ativa: false, dataFim: new Date() } });
+
+      // Cria nova atribuição
+      const nova = await tx.vinculacao.create({
+        data: {
+          usuarioId: destino.id,
+          equipamentoId: vinculacaoAtiva.equipamentoId,
+          tecnicoId: req.usuario.id,
+          tipoOperacao: vinculacaoAtiva.tipoOperacao,
+          statusEntrega: 'PENDENTE',
+        },
+        include: includeCompleto,
+      });
+
+      // Registra histórico
+      await tx.historico.create({
+        data: {
+          equipamentoId: vinculacaoAtiva.equipamentoId,
+          usuarioId: req.usuario.id,
+          acao: 'TRANSFERIDO',
+          descricao: `Equipamento transferido de ${vinculacaoAtiva.usuario.nome} para ${destino.nome}. Técnico: ${req.usuario.nome || req.usuario.email}`,
+        },
+      });
+
+      return nova;
+    });
+
+    res.json(novaVinculacao);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao realizar transferência' });
+  }
+};
+
+module.exports = { listar, criar, encerrar, reagendar, marcarNaoCompareceu, marcarEntregue, atualizarTecnico, transferir };

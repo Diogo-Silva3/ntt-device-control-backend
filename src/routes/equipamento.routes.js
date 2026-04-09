@@ -20,6 +20,8 @@ const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilt
 router.use(authMiddleware);
 
 router.get('/', ctrl.listar);
+router.get('/alertas-garantia', ctrl.alertasGarantia);
+router.get('/:id/historico-localizacao', ctrl.historicoLocalizacao);
 router.get('/:id', ctrl.buscarPorId);
 router.get('/:id/qrcode', ctrl.qrcode);
 router.post('/', ctrl.criar);
