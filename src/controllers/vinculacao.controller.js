@@ -226,9 +226,14 @@ const marcarNaoCompareceu = async (req, res) => {
 const marcarEntregue = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const { assinatura } = req.body;
     const atualizada = await prisma.vinculacao.update({
       where: { id },
-      data: { statusEntrega: 'ENTREGUE', dataFim: new Date() },
+      data: {
+        statusEntrega: 'ENTREGUE',
+        dataFim: new Date(),
+        ...(assinatura && { assinatura }),
+      },
       include: includeCompleto,
     });
 
