@@ -110,6 +110,7 @@ const criar = async (req, res) => {
 const encerrar = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const { observacao } = req.body;
 
     const vinculacao = await prisma.vinculacao.findUnique({
       where: { id },
@@ -122,7 +123,7 @@ const encerrar = async (req, res) => {
       data: {
         ativa: false,
         dataFim: new Date(),
-        // Se ainda estava pendente ao encerrar, marca como entregue
+        ...(observacao && { observacao }),
         ...(vinculacao.statusEntrega === 'PENDENTE' && { statusEntrega: 'ENTREGUE' }),
       },
     });
@@ -137,7 +138,7 @@ const encerrar = async (req, res) => {
         equipamentoId: vinculacao.equipamentoId,
         usuarioId: vinculacao.usuarioId,
         acao: 'DESATRIBUIDO',
-        descricao: `Equipamento desatribuído do usuário ${vinculacao.usuario.nome}`,
+        descricao: `Equipamento desatribuído do usuário ${vinculacao.usuario.nome}${observacao ? `. Obs: ${observacao}` : ''}`,
         dataFim: new Date(),
       },
     });
