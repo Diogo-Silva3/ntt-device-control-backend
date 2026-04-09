@@ -66,6 +66,8 @@ model Usuario {
   funcao      String?
   role        String       @default("TECNICO")
   senha       String?
+  resetToken        String?   @map("reset_token")
+  resetTokenExpira  DateTime? @map("reset_token_expira")
   ativo       Boolean      @default(true)
   unidadeId   Int?         @map("unidade_id")
   empresaId   Int          @map("empresa_id")

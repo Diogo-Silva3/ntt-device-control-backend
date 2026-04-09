@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const prisma = require('../config/prisma');
+const { enviarEmail } = require('../config/email');
 
 const DOMINIOS_PERMITIDOS = process.env.ALLOWED_DOMAINS
   ? process.env.ALLOWED_DOMAINS.split(',').map(d => d.trim())
@@ -75,4 +77,87 @@ const me = async (req, res) => {
   res.json(usuarioSemSenha);
 };
 
-module.exports = { login, register, me };
+const esqueciSenha = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email é obrigatório' });
+
+    const usuario = await prisma.usuario.findFirst({ where: { email, ativo: true } });
+
+    // Sempre retorna sucesso para não revelar se o email existe
+    if (!usuario || !usuario.senha) {
+      return res.json({ message: 'Se o email estiver cadastrado, você receberá as instruções.' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expira = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { resetToken: token, resetTokenExpira: expira },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://tech-refresh.cloud';
+    const link = `${frontendUrl}/redefinir-senha?token=${token}`;
+
+    await enviarEmail({
+      para: email,
+      assunto: 'Tech Refresh - Redefinição de senha',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;background:#f8fafc;padding:24px;border-radius:12px;">
+          <div style="text-align:center;padding:16px 0;">
+            <img src="https://tech-refresh.cloud/logo-ntt.png" alt="Tech Refresh" style="height:48px;object-fit:contain;" />
+          </div>
+          <div style="background:#1e40af;border-radius:8px;padding:20px 24px;margin-bottom:24px;">
+            <h2 style="color:#fff;margin:0;font-size:18px;">Redefinição de Senha</h2>
+          </div>
+          <p style="color:#334155;">Olá, <strong>${usuario.nome}</strong>!</p>
+          <p style="color:#475569;font-size:14px;">Recebemos uma solicitação para redefinir sua senha. Clique no botão abaixo:</p>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="${link}" style="background:#1e40af;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">
+              Redefinir Senha
+            </a>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;">Este link expira em 1 hora. Se você não solicitou, ignore este email.</p>
+          <p style="color:#94a3b8;font-size:11px;margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;">
+            Tech Refresh · Mensagem automática
+          </p>
+        </div>`,
+    });
+
+    res.json({ message: 'Se o email estiver cadastrado, você receberá as instruções.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao processar solicitação' });
+  }
+};
+
+const redefinirSenha = async (req, res) => {
+  try {
+    const { token, novaSenha } = req.body;
+    if (!token || !novaSenha) return res.status(400).json({ error: 'Token e nova senha são obrigatórios' });
+    if (novaSenha.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres' });
+
+    const usuario = await prisma.usuario.findFirst({
+      where: { resetToken: token, resetTokenExpira: { gt: new Date() }, ativo: true },
+    });
+
+    if (!usuario) return res.status(400).json({ error: 'Token inválido ou expirado' });
+
+    await prisma.usuario.update({
+      where: { id: usuario.id },
+      data: {
+        senha: await bcrypt.hash(novaSenha, 10),
+        resetToken: null,
+        resetTokenExpira: null,
+      },
+    });
+
+    res.json({ message: 'Senha redefinida com sucesso' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao redefinir senha' });
+  }
+};
+
+module.exports = { login, register, me, esqueciSenha, redefinirSenha };
