@@ -1,5 +1,7 @@
 const prisma = require('../config/prisma');
 const QRCode = require('qrcode');
+const path = require('path');
+const fs = require('fs');
 
 const PROCESSO_STEPS = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega', 'Entregue ao Usuário', 'Em Uso', 'Em Manutenção', 'Baixado'];
 
@@ -319,4 +321,27 @@ const regenerarQrCodes = async (req, res) => {
   }
 }
 
-module.exports = { listar, buscarPorId, criar, atualizar, atualizarChecklist, atualizarAgendamento, deletar, qrcode, regenerarQrCodes };
+const uploadFoto = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Nenhuma foto enviada' });
+    const id = parseInt(req.params.id);
+    const fotoUrl = `/uploads/fotos/${req.file.filename}`;
+
+    // Remove foto antiga se existir
+    const eq = await prisma.equipamento.findUnique({ where: { id }, select: { foto: true } });
+    if (eq?.foto) {
+      const oldPath = path.join(__dirname, '../../', eq.foto);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const atualizado = await prisma.equipamento.update({
+      where: { id },
+      data: { foto: fotoUrl },
+    });
+    res.json({ foto: atualizado.foto });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar foto' });
+  }
+};
+
+module.exports = { listar, buscarPorId, criar, atualizar, atualizarChecklist, atualizarAgendamento, deletar, qrcode, regenerarQrCodes, uploadFoto };

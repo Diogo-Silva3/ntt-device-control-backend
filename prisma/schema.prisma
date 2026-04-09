@@ -103,6 +103,7 @@ model Equipamento {
   dataEntrega          DateTime?    @map("data_entrega")
   observacao           String?
   qrCode               String?      @map("qr_code")
+  foto                 String?
   unidadeId            Int?         @map("unidade_id")
   empresaId            Int          @map("empresa_id")
   projetoId            Int?         @map("projeto_id")
