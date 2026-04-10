@@ -266,23 +266,24 @@ const atualizarChecklist = async (req, res) => {
 
     // Se checklist de preparação: calcular progresso e atualizar statusProcesso
     if (tipo === 'preparacao' && itens) {
-      const done = Object.values(itens).filter(v => v).length;
-      const total = CHECKLIST_PREPARACAO.length; // 8
+      // Tablet: checklist tem só { app, instalado }
+      if (itens.instalado !== undefined && itens.app) {
+        data.statusProcesso = itens.instalado ? 'Asset Registrado' : 'Novo'
+      } else {
+        const done = Object.values(itens).filter(v => v).length;
+        const total = CHECKLIST_PREPARACAO.length; // 8
 
-      if (done === 0) {
-        data.statusProcesso = 'Novo';
-      } else if (itens['imagem'] && done === 1) {
-        // Só imagem marcada
-        data.statusProcesso = 'Imagem Instalada';
-      } else if (itens['imagem'] && done < total) {
-        // Imagem + outros softwares, mas não todos
-        data.statusProcesso = 'Softwares Instalados';
-      } else if (done === total) {
-        // Todos os 8 marcados
-        data.statusProcesso = 'Asset Registrado';
-      } else if (!itens['imagem'] && done > 0) {
-        // Marcou outros sem marcar imagem
-        data.statusProcesso = 'Imagem Instalada';
+        if (done === 0) {
+          data.statusProcesso = 'Novo';
+        } else if (itens['imagem'] && done === 1) {
+          data.statusProcesso = 'Imagem Instalada';
+        } else if (itens['imagem'] && done < total) {
+          data.statusProcesso = 'Softwares Instalados';
+        } else if (done === total) {
+          data.statusProcesso = 'Asset Registrado';
+        } else if (!itens['imagem'] && done > 0) {
+          data.statusProcesso = 'Imagem Instalada';
+        }
       }
     }
 
