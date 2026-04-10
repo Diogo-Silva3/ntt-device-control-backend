@@ -44,7 +44,9 @@ const listar = async (req, res) => {
       ...(statusProcesso && {
         statusProcesso: statusProcesso === 'Imagem Instalada'
           ? { in: ['Imagem Instalada', 'Softwares Instalados'] }
-          : statusProcesso
+          : statusProcesso === 'Entregue ao Usuário'
+            ? { in: ['Entregue ao Usuário', 'Em Uso'] }
+            : statusProcesso
       }),
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
       ...(tipo && { tipo: { contains: tipo } }),
@@ -255,7 +257,7 @@ const atualizarChecklist = async (req, res) => {
 
     // Se checklist de entrega completo, muda status para Em Uso
     if (tipo === 'entrega' && itens && Object.values(itens).every(v => v === true)) {
-      data.statusProcesso = 'Em Uso';
+      data.statusProcesso = 'Entregue ao Usuário';
       data.status = 'EM_USO';
       // Marca checklist de preparação como completo também
       const prepCompleto = Object.fromEntries(CHECKLIST_PREPARACAO.map(i => [i, true]));
