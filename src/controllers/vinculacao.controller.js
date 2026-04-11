@@ -69,7 +69,10 @@ const criar = async (req, res) => {
 
     await prisma.equipamento.update({
       where: { id: parseInt(equipamentoId) },
-      data: { status: 'EM_USO' },
+      data: {
+        status: 'EM_USO',
+        ...(dataAgendamento && { statusProcesso: 'Agendado para Entrega' }),
+      },
     });
 
     await prisma.historico.create({
