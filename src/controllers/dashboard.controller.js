@@ -110,16 +110,11 @@ const getDashboard = async (req, res) => {
       prisma.vinculacao.count({
         where: { ...whereVinc, statusEntrega: 'PENDENTE' },
       }),
-      prisma.vinculacao.count({
+      prisma.equipamento.count({
         where: {
-          ...(tecnicoId
-            ? { tecnicoId }
-            : {
-                ...(projetoId && { equipamento: { projetoId } }),
-                usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
-              }
-          ),
-          statusEntrega: 'ENTREGUE',
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
     ]);
