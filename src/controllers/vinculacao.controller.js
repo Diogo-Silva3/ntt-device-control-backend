@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const { enviarEmail, templateAgendamento, templateReagendamento, templateEntregue, templateLembrete } = require('../config/email');
+const { registrarLog } = require('./auditoria.controller');
 
 const includeCompleto = {
   usuario: { select: { id: true, nome: true, funcao: true, unidade: true } },
@@ -9,19 +10,35 @@ const includeCompleto = {
 
 const listar = async (req, res) => {
   try {
-    const { ativa, usuarioId, equipamentoId, statusEntrega } = req.query;
+    const { ativa, usuarioId, equipamentoId, statusEntrega, page, limit: limitParam } = req.query;
     const empresaId = req.usuario.empresaId;
     const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
 
+    const where = {
+      ...(ativa !== undefined && { ativa: ativa === 'true' }),
+      ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
+      ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
+      ...(statusEntrega && { statusEntrega }),
+      ...(projetoId && { equipamento: { projetoId } }),
+      usuario: { empresaId },
+    };
+
+    // Paginação opcional — se page não for enviado, retorna tudo (compatibilidade)
+    if (page) {
+      const pageNum = parseInt(page) || 1;
+      const take = parseInt(limitParam) || 20;
+      const skip = (pageNum - 1) * take;
+
+      const [total, vinculacoes] = await Promise.all([
+        prisma.vinculacao.count({ where }),
+        prisma.vinculacao.findMany({ where, include: includeCompleto, orderBy: { dataInicio: 'desc' }, skip, take }),
+      ]);
+
+      return res.json({ data: vinculacoes, total, page: pageNum, limit: take, totalPages: Math.ceil(total / take) });
+    }
+
     const vinculacoes = await prisma.vinculacao.findMany({
-      where: {
-        ...(ativa !== undefined && { ativa: ativa === 'true' }),
-        ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
-        ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
-        ...(statusEntrega && { statusEntrega }),
-        ...(projetoId && { equipamento: { projetoId } }),
-        usuario: { empresaId },
-      },
+      where,
       include: includeCompleto,
       orderBy: { dataInicio: 'desc' },
     });
@@ -160,6 +177,16 @@ const encerrar = async (req, res) => {
         descricao: `Equipamento devolvido pelo usuário ${vinculacao.usuario.nome}${observacao ? `. Obs: ${observacao}` : ''}. Estado: ${checklist.estadoFisico || '—'}. Funcionamento: ${checklist.funcionamento || '—'}`,
         dataFim: new Date(),
       },
+    });
+
+    // Log de auditoria
+    registrarLog({
+      usuarioId: req.usuario?.id,
+      empresaId: req.usuario?.empresaId,
+      acao: acaoHistorico,
+      detalhes: `Devolução de ${vinculacao.usuario.nome} — ${vinculacao.equipamento?.serialNumber || vinculacao.equipamentoId}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
     });
 
     res.json(atualizada);
@@ -352,6 +379,16 @@ const transferir = async (req, res) => {
     });
 
     res.json(novaVinculacao);
+
+    // Log de auditoria
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'TRANSFERIDO',
+      detalhes: `Equipamento ${vinculacaoAtiva.equipamento?.serialNumber || vinculacaoAtiva.equipamentoId} transferido de ${vinculacaoAtiva.usuario.nome} para ${destino.nome}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao realizar transferência' });

@@ -188,6 +188,21 @@ model Chamado {
   @@map("chamados")
 }
 
+model LogAcesso {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int?     @map("usuario_id")
+  empresaId  Int?     @map("empresa_id")
+  acao       String
+  detalhes   String?
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([empresaId])
+  @@index([usuarioId])
+  @@map("log_acessos")
+}
+
 model HistoricoLocalizacao {
   id                Int       @id @default(autoincrement())
   equipamentoId     Int       @map("equipamento_id")

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('../config/prisma');
 const { enviarEmail } = require('../config/email');
+const { registrarLog } = require('./auditoria.controller');
 
 const DOMINIOS_PERMITIDOS = process.env.ALLOWED_DOMAINS
   ? process.env.ALLOWED_DOMAINS.split(',').map(d => d.trim())
@@ -32,6 +33,14 @@ const login = async (req, res) => {
 
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
     if (!senhaValida) {
+      registrarLog({
+        usuarioId: usuario.id,
+        empresaId: usuario.empresaId,
+        acao: 'LOGIN_FALHOU',
+        detalhes: `Tentativa de login com senha incorreta para ${email}`,
+        ip: req.ip || req.headers['x-forwarded-for'],
+        userAgent: req.headers['user-agent'],
+      });
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
 
@@ -43,6 +52,16 @@ const login = async (req, res) => {
 
     const { senha: _, ...usuarioSemSenha } = usuario;
     res.json({ token, usuario: usuarioSemSenha });
+
+    // Log de acesso (assíncrono, não bloqueia resposta)
+    registrarLog({
+      usuarioId: usuario.id,
+      empresaId: usuario.empresaId,
+      acao: 'LOGIN',
+      detalhes: `Login realizado por ${usuario.email}`,
+      ip: req.ip || req.headers['x-forwarded-for'],
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao realizar login' });
@@ -151,6 +170,15 @@ const redefinirSenha = async (req, res) => {
         resetToken: null,
         resetTokenExpira: null,
       },
+    });
+
+    registrarLog({
+      usuarioId: usuario.id,
+      empresaId: usuario.empresaId,
+      acao: 'SENHA_REDEFINIDA',
+      detalhes: `Senha redefinida via token para ${usuario.email}`,
+      ip: req.ip || req.headers['x-forwarded-for'],
+      userAgent: req.headers['user-agent'],
     });
 
     res.json({ message: 'Senha redefinida com sucesso' });
