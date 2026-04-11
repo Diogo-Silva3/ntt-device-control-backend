@@ -253,6 +253,14 @@ const marcarEntregue = async (req, res) => {
       include: includeCompleto,
     });
 
+    // Atualiza statusProcesso do equipamento para 'Entregue ao Usuário'
+    if (atualizada.equipamentoId) {
+      await prisma.equipamento.update({
+        where: { id: atualizada.equipamentoId },
+        data: { statusProcesso: 'Entregue ao Usuário', status: 'EM_USO' },
+      });
+    }
+
     // Email de confirmação de entrega
     if (atualizada.usuario?.email) {
       const eq = atualizada.equipamento;
