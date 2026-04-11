@@ -3,9 +3,9 @@ const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
 
 async function main() {
-  // Equipamentos com vinculação PENDENTE e dataAgendamento definida mas statusProcesso errado
+  // Equipamentos com vinculação PENDENTE (com ou sem dataAgendamento)
   const vinculacoesPendentes = await p.vinculacao.findMany({
-    where: { statusEntrega: 'PENDENTE', dataAgendamento: { not: null } },
+    where: { statusEntrega: 'PENDENTE' },
     select: { equipamentoId: true },
     distinct: ['equipamentoId'],
   });
