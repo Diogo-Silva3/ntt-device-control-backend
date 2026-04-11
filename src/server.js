@@ -46,6 +46,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id', 'x-projeto-id'],
 }));
 
+// Confia no proxy reverso (Nginx na VPS)
+app.set('trust proxy', 1);
+
 // Responde preflight OPTIONS em todas as rotas
 app.options('*', cors());
 app.use(express.json());
