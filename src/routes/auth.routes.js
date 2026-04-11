@@ -9,6 +9,7 @@ const loginLimiter = rateLimit({
   message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }, // evita erro em VPS com proxy/nginx
 });
 
 router.post('/login', loginLimiter, login);
