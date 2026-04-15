@@ -21,6 +21,19 @@ const PROCESSO_STEPS = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Ass
 
 const CHECKLIST_PREPARACAO = ['imagem', 'drivers', 'office', 'antivirus', 'vpn', 'monitoramento', 'rede', 'login'];
 
+/**
+ * Dado um statusProcesso, retorna o status físico correto.
+ * Garante que status e statusProcesso nunca fiquem dessincronizados.
+ */
+const statusParaProcesso = (statusProcesso) => {
+  if (!statusProcesso) return undefined;
+  if (['Entregue ao Usuário', 'Em Uso'].includes(statusProcesso)) return 'EM_USO';
+  if (['Baixado'].includes(statusProcesso)) return 'DESCARTADO';
+  if (['Em Manutenção'].includes(statusProcesso)) return 'MANUTENCAO';
+  // Novo, Imagem Instalada, Softwares Instalados, Asset Registrado, Agendado para Entrega
+  return 'DISPONIVEL';
+};
+
 const includeBase = {
   unidade: true,
   tecnico: { select: { id: true, nome: true } },
@@ -219,6 +232,8 @@ const atualizar = async (req, res) => {
           data: {
             tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
             ...(statusProcesso !== undefined && { statusProcesso }),
+            // Sincroniza status físico com statusProcesso automaticamente
+            ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
             ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
             ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
             unidadeId: novaUnidadeId,
@@ -246,6 +261,8 @@ const atualizar = async (req, res) => {
         data: {
           tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
           ...(statusProcesso !== undefined && { statusProcesso }),
+          // Sincroniza status físico com statusProcesso automaticamente
+          ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
           ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
           ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
           tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
@@ -324,6 +341,11 @@ const atualizarChecklist = async (req, res) => {
           data.statusProcesso = 'Imagem Instalada';
         }
       }
+    }
+
+    // Sincroniza status físico com statusProcesso (evita dessincronização)
+    if (data.statusProcesso && !data.status) {
+      data.status = statusParaProcesso(data.statusProcesso);
     }
 
     const equipamento = await prisma.equipamento.update({

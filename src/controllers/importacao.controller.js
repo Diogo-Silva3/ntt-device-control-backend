@@ -259,7 +259,7 @@ const importarEquipamentos = async (req, res) => {
                 marca: marca || existente.marca,
                 modelo: modelo || existente.modelo,
                 status,
-                statusProcesso: status === 'EM_USO' ? 'Entregue ao Usuário' : undefined,
+                statusProcesso: status === 'EM_USO' ? 'Entregue ao Usuário' : (status === 'DISPONIVEL' ? 'Novo' : undefined),
                 unidadeId,
                 ...(projetoId && { projetoId }),
                 ...(serial && { serialNumber: serial }),
