@@ -35,10 +35,8 @@ const listar = async (req, res) => {
       empresaFiltro = req.usuario.empresaId;
     }
 
-    // Filtro de projeto: usa query param ou o projeto ativo do header
-    const projetoFiltro = projetoIdQuery
-      ? parseInt(projetoIdQuery)
-      : req.usuario.projetoIdAtivo || undefined;
+    // Filtro de projeto: só aplica se vier explicitamente como query param
+    const projetoFiltro = projetoIdQuery ? parseInt(projetoIdQuery) : undefined;
 
     const where = {
       ...(empresaFiltro !== undefined && { empresaId: empresaFiltro }),
