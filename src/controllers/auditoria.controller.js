@@ -41,7 +41,7 @@ const listar = async (req, res) => {
     const where = {
       ...(empresaFiltro !== undefined && { empresaId: empresaFiltro }),
       ...(projetoFiltro !== undefined && { projetoId: projetoFiltro }),
-      ...(acao && { acao: { contains: acao } }),
+      ...(acao && { acao }),
       ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
     };
 
