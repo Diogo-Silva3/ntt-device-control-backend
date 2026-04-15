@@ -173,33 +173,36 @@ const atualizar = async (req, res) => {
     const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa } = req.body;
     const id = parseInt(req.params.id);
 
-    // Se mudou statusProcesso, registra no histórico de etapas
-    if (statusProcesso !== undefined) {
-      const atual = await prisma.equipamento.findUnique({ where: { id }, select: { statusProcesso: true, historicoEtapas: true } });
-      if (atual && atual.statusProcesso !== statusProcesso) {
-        let etapasLog = [];
-        try { etapasLog = atual.historicoEtapas ? JSON.parse(atual.historicoEtapas) : []; } catch { etapasLog = []; }
-        if (!Array.isArray(etapasLog)) etapasLog = [];
-        etapasLog.push({
-          etapa: statusProcesso,
-          de: atual.statusProcesso,
-          para: statusProcesso,
-          tecnicoId: req.usuario.id,
-          tecnicoNome: req.usuario.nome || req.usuario.email,
-          comentario: comentarioEtapa || null,
-          data: new Date().toISOString(),
-        });
-        await prisma.equipamento.update({ where: { id }, data: { historicoEtapas: JSON.stringify(etapasLog) } });
+    // Busca estado atual para comparar mudanças relevantes
+    const anterior = await prisma.equipamento.findUnique({
+      where: { id },
+      select: { statusProcesso: true, historicoEtapas: true, tecnicoId: true, tecnico: { select: { nome: true } } },
+    });
 
-        await prisma.historico.create({
-          data: {
-            equipamentoId: id,
-            usuarioId: req.usuario.id,
-            acao: 'ETAPA_AVANCADA',
-            descricao: `Etapa avançada: ${atual.statusProcesso} → ${statusProcesso}${comentarioEtapa ? ` | ${comentarioEtapa}` : ''}`,
-          },
-        });
-      }
+    // Se mudou statusProcesso, registra no histórico de etapas
+    if (statusProcesso !== undefined && anterior && anterior.statusProcesso !== statusProcesso) {
+      let etapasLog = [];
+      try { etapasLog = anterior.historicoEtapas ? JSON.parse(anterior.historicoEtapas) : []; } catch { etapasLog = []; }
+      if (!Array.isArray(etapasLog)) etapasLog = [];
+      etapasLog.push({
+        etapa: statusProcesso,
+        de: anterior.statusProcesso,
+        para: statusProcesso,
+        tecnicoId: req.usuario.id,
+        tecnicoNome: req.usuario.nome || req.usuario.email,
+        comentario: comentarioEtapa || null,
+        data: new Date().toISOString(),
+      });
+      await prisma.equipamento.update({ where: { id }, data: { historicoEtapas: JSON.stringify(etapasLog) } });
+
+      await prisma.historico.create({
+        data: {
+          equipamentoId: id,
+          usuarioId: req.usuario.id,
+          acao: 'ETAPA_AVANCADA',
+          descricao: `Etapa avançada: ${anterior.statusProcesso} → ${statusProcesso}${comentarioEtapa ? ` | ${comentarioEtapa}` : ''}`,
+        },
+      });
     }
 
     // Se mudou unidadeId, registra HistoricoLocalizacao dentro de uma transação
@@ -253,12 +256,27 @@ const atualizar = async (req, res) => {
 
     res.json(equipamento);
 
+    // Monta detalhes ricos: menciona técnico se foi designado/alterado
+    const novoTecnicoId = tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined;
+    let detalhesLog = `Equipamento #${id} atualizado por ${req.usuario.nome || req.usuario.email}`;
+    if (statusProcesso && anterior?.statusProcesso !== statusProcesso) {
+      detalhesLog += ` — etapa: ${anterior?.statusProcesso} → ${statusProcesso}`;
+    }
+    if (novoTecnicoId !== undefined && novoTecnicoId !== anterior?.tecnicoId) {
+      const novoTecnico = novoTecnicoId
+        ? await prisma.usuario.findUnique({ where: { id: novoTecnicoId }, select: { nome: true } })
+        : null;
+      const nomeAnterior = anterior?.tecnico?.nome || '—';
+      const nomeNovo = novoTecnico?.nome || '—';
+      detalhesLog += ` — técnico: ${nomeAnterior} → ${nomeNovo}`;
+    }
+
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
       projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'EQUIPAMENTO_EDITADO',
-      detalhes: `Equipamento #${id} atualizado${statusProcesso ? ` — etapa: ${statusProcesso}` : ''}`,
+      detalhes: detalhesLog,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });

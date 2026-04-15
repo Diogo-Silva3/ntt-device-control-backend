@@ -347,12 +347,30 @@ const atualizarTecnico = async (req, res) => {
     const id = parseInt(req.params.id);
     const { tecnicoId } = req.body;
     if (!tecnicoId) return res.status(400).json({ error: 'Técnico é obrigatório' });
+
+    // Busca técnico anterior para o log
+    const vinculacaoAnterior = await prisma.vinculacao.findUnique({
+      where: { id },
+      include: { tecnico: { select: { nome: true } }, usuario: { select: { nome: true } }, equipamento: { select: { serialNumber: true } } },
+    });
+
     const atualizada = await prisma.vinculacao.update({
       where: { id },
       data: { tecnicoId: parseInt(tecnicoId) },
       include: includeCompleto,
     });
+
     res.json(atualizada);
+
+    registrarLog({
+      usuarioId: req.usuario?.id,
+      empresaId: req.usuario?.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
+      acao: 'TECNICO_DESIGNADO',
+      detalhes: `Técnico responsável alterado: ${vinculacaoAnterior?.tecnico?.nome || '—'} → ${atualizada.tecnico?.nome || '—'} | Colaborador: ${vinculacaoAnterior?.usuario?.nome || '—'} | Equip: ${vinculacaoAnterior?.equipamento?.serialNumber || '#' + atualizada.equipamentoId} | Por: ${req.usuario?.nome || req.usuario?.email}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao atualizar técnico' });
   }
