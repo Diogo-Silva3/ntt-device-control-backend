@@ -121,6 +121,15 @@ const criar = async (req, res) => {
     }
 
     res.status(201).json(vinculacao);
+
+    registrarLog({
+      usuarioId: req.usuario?.id,
+      empresaId: req.usuario?.empresaId,
+      acao: 'EQUIPAMENTO_ATRIBUIDO',
+      detalhes: `Equipamento #${equipamentoId} atribuído a ${vinculacao.usuario?.nome} pelo técnico ${vinculacao.tecnico?.nome || req.usuario?.email}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar atribuição' });
@@ -249,6 +258,15 @@ const reagendar = async (req, res) => {
     }
 
     res.json(atualizada);
+
+    registrarLog({
+      usuarioId: req.usuario?.id,
+      empresaId: req.usuario?.empresaId,
+      acao: 'REAGENDAMENTO',
+      detalhes: `Entrega reagendada para vinculação #${id} — nova data: ${dataAgendamento}${motivo ? ` | motivo: ${motivo}` : ''}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao reagendar' });
@@ -306,6 +324,15 @@ const marcarEntregue = async (req, res) => {
     }
 
     res.json(atualizada);
+
+    registrarLog({
+      usuarioId: req.usuario?.id,
+      empresaId: req.usuario?.empresaId,
+      acao: 'ENTREGA_CONFIRMADA',
+      detalhes: `Equipamento #${atualizada.equipamentoId} marcado como entregue para ${atualizada.usuario?.nome}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao marcar como entregue' });
   }

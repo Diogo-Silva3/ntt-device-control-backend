@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma');
 const bcrypt = require('bcryptjs');
+const { registrarLog } = require('./auditoria.controller');
 
 const listar = async (req, res) => {
   try {
@@ -77,6 +78,15 @@ const criar = async (req, res) => {
     const usuario = await prisma.usuario.create({ data, include: { unidade: true } });
     const { senha: _, ...usuarioSemSenha } = usuario;
     res.status(201).json(usuarioSemSenha);
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId,
+      acao: 'USUARIO_CRIADO',
+      detalhes: `Usuário criado: ${nome} (${email || '—'}) — role: ${role || 'TECNICO'}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar usuário' });
@@ -130,6 +140,15 @@ const deletar = async (req, res) => {
       data: { ativo: false },
     });
     res.json({ message: 'Usuário desativado com sucesso' });
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'USUARIO_DESATIVADO',
+      detalhes: `Usuário #${req.params.id} desativado por ${req.usuario.nome || req.usuario.email}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao deletar usuário' });
   }

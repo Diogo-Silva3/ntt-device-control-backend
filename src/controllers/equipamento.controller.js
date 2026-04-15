@@ -2,6 +2,7 @@ const prisma = require('../config/prisma');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
+const { registrarLog } = require('./auditoria.controller');
 
 const calcularStatusGarantia = (dataGarantia) => {
   if (!dataGarantia) return null;
@@ -151,6 +152,15 @@ const criar = async (req, res) => {
     });
 
     res.status(201).json(atualizado);
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId,
+      acao: 'EQUIPAMENTO_CRIADO',
+      detalhes: `Equipamento criado: ${tipo} ${marca} ${modelo} — S/N: ${serialNumber || '—'}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao criar equipamento' });
@@ -241,6 +251,15 @@ const atualizar = async (req, res) => {
     }
 
     res.json(equipamento);
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'EQUIPAMENTO_EDITADO',
+      detalhes: `Equipamento #${id} atualizado${statusProcesso ? ` — etapa: ${statusProcesso}` : ''}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar equipamento' });
@@ -324,6 +343,15 @@ const atualizarAgendamento = async (req, res) => {
       ...equipamento,
       agendamento: equipamento.agendamento ? JSON.parse(equipamento.agendamento) : null,
     });
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'AGENDAMENTO_CRIADO',
+      detalhes: `Agendamento criado para equipamento #${id}${agendamento.data ? ` — data: ${agendamento.data}` : ''}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao salvar agendamento' });
@@ -337,6 +365,15 @@ const deletar = async (req, res) => {
       data: { status: 'DESCARTADO', statusProcesso: 'Baixado' },
     });
     res.json({ message: 'Equipamento marcado como descartado' });
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'EQUIPAMENTO_DESCARTADO',
+      detalhes: `Equipamento #${req.params.id} marcado como descartado`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao deletar equipamento' });
   }

@@ -1,6 +1,7 @@
 ﻿const XLSX = require('xlsx');
 const prisma = require('../config/prisma');
 const QRCode = require('qrcode');
+const { registrarLog } = require('./auditoria.controller');
 
 function lerPlanilha(buffer) {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
@@ -94,6 +95,15 @@ const importarUsuarios = async (req, res) => {
     }
 
     res.json({ message: 'Importacao concluida', criados, atualizados, erros: erros.length, detalhesErros: erros.slice(0, 10) });
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'IMPORTACAO_USUARIOS',
+      detalhes: `Planilha de colaboradores importada — criados: ${criados}, atualizados: ${atualizados}, erros: ${erros.length}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao importar colaboradores' });
@@ -298,6 +308,15 @@ const importarEquipamentos = async (req, res) => {
     }
 
     res.json({ message: 'Importacao concluida', criados, atualizados, vinculados, erros: erros.length, detalhesErros: erros.slice(0, 10) });
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      acao: 'IMPORTACAO_EQUIPAMENTOS',
+      detalhes: `Planilha de equipamentos importada — criados: ${criados}, atualizados: ${atualizados}, vinculados: ${vinculados}, erros: ${erros.length}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao importar equipamentos' });
