@@ -82,6 +82,7 @@ const criar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'USUARIO_CRIADO',
       detalhes: `Usuário criado: ${nome} (${email || '—'}) — role: ${role || 'TECNICO'}`,
       ip: req.ip,
@@ -144,6 +145,7 @@ const deletar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'USUARIO_DESATIVADO',
       detalhes: `Usuário #${req.params.id} desativado por ${req.usuario.nome || req.usuario.email}`,
       ip: req.ip,

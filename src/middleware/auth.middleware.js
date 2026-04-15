@@ -27,7 +27,13 @@ const authMiddleware = async (req, res, next) => {
         const empresaId = parseInt(empresaIdHeader);
         const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
         if (empresa) {
-          req.usuario = { ...usuario, empresaId, empresa };
+          const projetoIdHeader = req.headers['x-projeto-id'];
+          req.usuario = {
+            ...usuario,
+            empresaId,
+            empresa,
+            projetoIdAtivo: projetoIdHeader ? parseInt(projetoIdHeader) : null,
+          };
           return next();
         }
       }
@@ -35,6 +41,11 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.usuario = usuario;
+
+    // Captura projetoId do header x-projeto-id para uso nos controllers
+    const projetoIdHeader = req.headers['x-projeto-id'];
+    if (projetoIdHeader) req.usuario.projetoIdAtivo = parseInt(projetoIdHeader);
+
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Token inválido ou expirado' });

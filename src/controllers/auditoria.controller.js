@@ -1,12 +1,13 @@
 const prisma = require('../config/prisma');
 
 // Registra uma ação no log (uso interno)
-const registrarLog = async ({ usuarioId, empresaId, acao, detalhes, ip, userAgent }) => {
+const registrarLog = async ({ usuarioId, empresaId, projetoId, acao, detalhes, ip, userAgent }) => {
   try {
     await prisma.logAcesso.create({
       data: {
         usuarioId: usuarioId || null,
         empresaId: empresaId || null,
+        projetoId: projetoId || null,
         acao,
         detalhes: detalhes || null,
         ip: ip || null,
@@ -14,7 +15,6 @@ const registrarLog = async ({ usuarioId, empresaId, acao, detalhes, ip, userAgen
       },
     });
   } catch (err) {
-    // Nunca deixa o log quebrar a requisição principal
     console.error('[AUDITORIA] Erro ao registrar log:', err.message);
   }
 };
@@ -23,13 +23,11 @@ const registrarLog = async ({ usuarioId, empresaId, acao, detalhes, ip, userAgen
 const listar = async (req, res) => {
   try {
     const isSuperAdmin = req.usuario.role === 'SUPERADMIN';
-    const { page = 1, limit = 50, acao, usuarioId, empresaId: empresaIdQuery } = req.query;
+    const { page = 1, limit = 50, acao, usuarioId, empresaId: empresaIdQuery, projetoId: projetoIdQuery } = req.query;
     const pageNum = parseInt(page);
     const take = Math.min(parseInt(limit) || 50, 200);
     const skip = (pageNum - 1) * take;
 
-    // SUPERADMIN sem filtro de empresa vê tudo; com filtro, filtra pelo escolhido
-    // ADMIN/TECNICO só vê a própria empresa
     let empresaFiltro;
     if (isSuperAdmin) {
       empresaFiltro = empresaIdQuery ? parseInt(empresaIdQuery) : undefined;
@@ -37,8 +35,14 @@ const listar = async (req, res) => {
       empresaFiltro = req.usuario.empresaId;
     }
 
+    // Filtro de projeto: usa query param ou o projeto ativo do header
+    const projetoFiltro = projetoIdQuery
+      ? parseInt(projetoIdQuery)
+      : req.usuario.projetoIdAtivo || undefined;
+
     const where = {
       ...(empresaFiltro !== undefined && { empresaId: empresaFiltro }),
+      ...(projetoFiltro !== undefined && { projetoId: projetoFiltro }),
       ...(acao && { acao: { contains: acao } }),
       ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
     };
@@ -70,9 +74,18 @@ const listar = async (req, res) => {
       }
     }
 
+    // Enriquece com nome do projeto
+    const projetoIds = [...new Set(logs.map(l => l.projetoId).filter(Boolean))];
+    let projetoMap = {};
+    if (projetoIds.length > 0) {
+      const projetos = await prisma.projeto.findMany({ where: { id: { in: projetoIds } }, select: { id: true, nome: true } });
+      projetoMap = Object.fromEntries(projetos.map(p => [p.id, p.nome]));
+    }
+
     const logsEnriquecidos = logs.map(l => ({
       ...l,
       usuarioNome: l.usuarioId ? (usuarioMap[l.usuarioId] || 'Desconhecido') : 'Sistema',
+      projetoNome: l.projetoId ? (projetoMap[l.projetoId] || `Projeto #${l.projetoId}`) : null,
       ...(isSuperAdmin && { empresaNome: l.empresaId ? (empresaMap[l.empresaId] || `Empresa #${l.empresaId}`) : '—' }),
     }));
 

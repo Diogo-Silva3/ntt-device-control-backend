@@ -156,6 +156,7 @@ const criar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'EQUIPAMENTO_CRIADO',
       detalhes: `Equipamento criado: ${tipo} ${marca} ${modelo} — S/N: ${serialNumber || '—'}`,
       ip: req.ip,
@@ -255,6 +256,7 @@ const atualizar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'EQUIPAMENTO_EDITADO',
       detalhes: `Equipamento #${id} atualizado${statusProcesso ? ` — etapa: ${statusProcesso}` : ''}`,
       ip: req.ip,
@@ -347,6 +349,7 @@ const atualizarAgendamento = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'AGENDAMENTO_CRIADO',
       detalhes: `Agendamento criado para equipamento #${id}${agendamento.data ? ` — data: ${agendamento.data}` : ''}`,
       ip: req.ip,
@@ -369,6 +372,7 @@ const deletar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'EQUIPAMENTO_DESCARTADO',
       detalhes: `Equipamento #${req.params.id} marcado como descartado`,
       ip: req.ip,

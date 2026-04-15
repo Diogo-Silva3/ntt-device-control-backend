@@ -99,6 +99,7 @@ const importarUsuarios = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'IMPORTACAO_USUARIOS',
       detalhes: `Planilha de colaboradores importada — criados: ${criados}, atualizados: ${atualizados}, erros: ${erros.length}`,
       ip: req.ip,
@@ -312,6 +313,7 @@ const importarEquipamentos = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'IMPORTACAO_EQUIPAMENTOS',
       detalhes: `Planilha de equipamentos importada — criados: ${criados}, atualizados: ${atualizados}, vinculados: ${vinculados}, erros: ${erros.length}`,
       ip: req.ip,

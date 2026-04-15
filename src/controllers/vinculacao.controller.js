@@ -125,6 +125,7 @@ const criar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario?.id,
       empresaId: req.usuario?.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'EQUIPAMENTO_ATRIBUIDO',
       detalhes: `Equipamento #${equipamentoId} atribuído a ${vinculacao.usuario?.nome} pelo técnico ${vinculacao.tecnico?.nome || req.usuario?.email}`,
       ip: req.ip,
@@ -192,6 +193,7 @@ const encerrar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario?.id,
       empresaId: req.usuario?.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: acaoHistorico,
       detalhes: `Devolução de ${vinculacao.usuario.nome} — ${vinculacao.equipamento?.serialNumber || vinculacao.equipamentoId}`,
       ip: req.ip,
@@ -262,6 +264,7 @@ const reagendar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario?.id,
       empresaId: req.usuario?.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'REAGENDAMENTO',
       detalhes: `Entrega reagendada para vinculação #${id} — nova data: ${dataAgendamento}${motivo ? ` | motivo: ${motivo}` : ''}`,
       ip: req.ip,
@@ -328,6 +331,7 @@ const marcarEntregue = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario?.id,
       empresaId: req.usuario?.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'ENTREGA_CONFIRMADA',
       detalhes: `Equipamento #${atualizada.equipamentoId} marcado como entregue para ${atualizada.usuario?.nome}`,
       ip: req.ip,
@@ -411,6 +415,7 @@ const transferir = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'TRANSFERIDO',
       detalhes: `Equipamento ${vinculacaoAtiva.equipamento?.serialNumber || vinculacaoAtiva.equipamentoId} transferido de ${vinculacaoAtiva.usuario.nome} para ${destino.nome}`,
       ip: req.ip,
