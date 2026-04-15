@@ -30,6 +30,8 @@ const listar = async (req, res) => {
 
     let empresaFiltro;
     if (isSuperAdmin) {
+      // SUPERADMIN: só filtra por empresa se vier explicitamente na query
+      // Ignora o x-empresa-id do header (que vem do cliente ativo no frontend)
       empresaFiltro = empresaIdQuery ? parseInt(empresaIdQuery) : undefined;
     } else {
       empresaFiltro = req.usuario.empresaId;

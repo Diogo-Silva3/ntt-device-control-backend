@@ -32,6 +32,7 @@ const authMiddleware = async (req, res, next) => {
             ...usuario,
             empresaId,
             empresa,
+            empresaIdOriginal: usuario.empresaId, // preserva o id real do superadmin
             projetoIdAtivo: projetoIdHeader ? parseInt(projetoIdHeader) : null,
           };
           return next();
