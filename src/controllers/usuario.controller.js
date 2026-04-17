@@ -110,7 +110,11 @@ const atualizar = async (req, res) => {
     if (isAdmin) {
       // Admin pode alterar tudo
       const { nome, email, funcao, role, unidadeId, ativo, senha, empresaId } = req.body;
-      data = { nome: nome?.toUpperCase(), email, funcao, role, ativo };
+      data = { nome: nome?.toUpperCase() };
+      if (email !== undefined) data.email = email || null;
+      if (funcao !== undefined) data.funcao = funcao || null;
+      if (role !== undefined) data.role = role;
+      if (ativo !== undefined) data.ativo = ativo;
       if (unidadeId !== undefined) data.unidadeId = unidadeId ? parseInt(unidadeId) : null;
       if (empresaId && req.usuario.role === 'SUPERADMIN') data.empresaId = parseInt(empresaId);
       if (senha) data.senha = await bcrypt.hash(senha, 10);
