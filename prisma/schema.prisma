@@ -9,18 +9,19 @@ datasource db {
 }
 
 model Empresa {
-  id           Int           @id @default(autoincrement())
-  nome         String        @unique
-  cnpj         String?
-  logo         String?
-  ativo        Boolean       @default(true)
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  unidades     Unidade[]
-  usuarios     Usuario[]
-  equipamentos Equipamento[]
-  projetos     Projeto[]
-  chamados     Chamado[]
+  id                Int                @id @default(autoincrement())
+  nome              String             @unique
+  cnpj              String?
+  logo              String?
+  ativo             Boolean            @default(true)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  unidades          Unidade[]
+  usuarios          Usuario[]
+  equipamentos      Equipamento[]
+  projetos          Projeto[]
+  chamados          Chamado[]
+  solicitacoes      SolicitacaoAtivo[]
 
   @@map("empresas")
 }
@@ -36,25 +37,27 @@ model Projeto {
   empresa      Empresa       @relation(fields: [empresaId], references: [id])
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
-  equipamentos Equipamento[]
-  usuarios     Usuario[]
-  vinculacoes  Vinculacao[]
-  logAcessos   LogAcesso[]
+  equipamentos  Equipamento[]
+  usuarios      Usuario[]
+  vinculacoes   Vinculacao[]
+  logAcessos    LogAcesso[]
+  solicitacoes  SolicitacaoAtivo[]
 
   @@map("projetos")
 }
 
 model Unidade {
-  id           Int           @id @default(autoincrement())
-  nome         String
-  cidade       String?
-  estado       String?
-  empresaId    Int           @map("empresa_id")
-  empresa      Empresa       @relation(fields: [empresaId], references: [id])
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  usuarios     Usuario[]
-  equipamentos Equipamento[]
+  id                   Int                    @id @default(autoincrement())
+  nome                 String
+  cidade               String?
+  estado               String?
+  empresaId            Int                    @map("empresa_id")
+  empresa              Empresa                @relation(fields: [empresaId], references: [id])
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+  usuarios             Usuario[]
+  equipamentos         Equipamento[]
+  solicitacoes         SolicitacaoAtivo[]
   historicoLocAnterior HistoricoLocalizacao[] @relation("HistoricoLocAnterior")
   historicoLocNova     HistoricoLocalizacao[] @relation("HistoricoLocNova")
 
@@ -83,9 +86,10 @@ model Usuario {
   vinculacoes          Vinculacao[]
   historicos           Historico[]
   chamados             Chamado[]
-  equipamentosTecnico  Equipamento[] @relation("TecnicoEquipamentos")
-  atribuicoesTecnico   Vinculacao[]  @relation("TecnicoAtribuicoes")
+  equipamentosTecnico  Equipamento[]    @relation("TecnicoEquipamentos")
+  atribuicoesTecnico   Vinculacao[]     @relation("TecnicoAtribuicoes")
   historicoLocalizacao HistoricoLocalizacao[]
+  solicitacoesTecnico  SolicitacaoAtivo[] @relation("TecnicoSolicitacoes")
 
   @@map("usuarios")
 }
@@ -122,6 +126,7 @@ model Equipamento {
   historicos           Historico[]
   chamados             Chamado[]
   historicoLocalizacao HistoricoLocalizacao[]
+  solicitacoes         SolicitacaoAtivo[]
 
   @@map("equipamentos")
 }
@@ -222,4 +227,78 @@ model HistoricoLocalizacao {
   tecnico           Usuario?    @relation(fields: [tecnicoId], references: [id])
 
   @@map("historico_localizacao")
+}
+
+model SolicitacaoAtivo {
+  id                        Int       @id @default(autoincrement())
+
+  // Identificação
+  numeroChamado             String    @map("numero_chamado")
+  dataCriacao               DateTime  @default(now()) @map("data_criacao")
+  descricao                 String?
+  observacoes               String?
+
+  // Classificação
+  tipo                      String
+  status                    String    @default("ABERTO")
+  estado                    String    @default("Aberto")
+
+  // Etapas do pipeline (datas)
+  dataDefinicao             DateTime? @map("data_definicao")
+  dataDefinicaoConfirmada   DateTime? @map("data_definicao_confirmada")
+  dataSolicitacaoNF         DateTime? @map("data_solicitacao_nf")
+  dataEmissaoNF             DateTime? @map("data_emissao_nf")
+  dataSolicitacaoColeta     DateTime? @map("data_solicitacao_coleta")
+  dataColeta                DateTime? @map("data_coleta")
+  previsaoChegada           DateTime? @map("previsao_chegada")
+  dataChegada               DateTime? @map("data_chegada")
+  dataEntrega               DateTime? @map("data_entrega")
+
+  // Diferença previsão vs real
+  diasAtrasoChegada         Int?      @map("dias_atraso_chegada")
+
+  // Ativo
+  serialOrigem              String?   @map("serial_origem")
+  equipamentoId             Int?      @map("equipamento_id")
+
+  // Relações FK
+  tecnicoId                 Int       @map("tecnico_id")
+  unidadeId                 Int       @map("unidade_id")
+  empresaId                 Int       @map("empresa_id")
+  projetoId                 Int?      @map("projeto_id")
+
+  // Controle
+  importado                 Boolean   @default(false)
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  // Relações Prisma
+  tecnico                   Usuario              @relation("TecnicoSolicitacoes", fields: [tecnicoId], references: [id])
+  unidade                   Unidade              @relation(fields: [unidadeId], references: [id])
+  empresa                   Empresa              @relation(fields: [empresaId], references: [id])
+  projeto                   Projeto?             @relation(fields: [projetoId], references: [id])
+  equipamento               Equipamento?         @relation(fields: [equipamentoId], references: [id])
+  auditoria                 SolicitacaoAuditoria[]
+
+  @@unique([numeroChamado, empresaId])
+  @@index([empresaId])
+  @@index([tecnicoId])
+  @@index([unidadeId])
+  @@index([status])
+  @@map("solicitacoes_ativos")
+}
+
+model SolicitacaoAuditoria {
+  id               Int              @id @default(autoincrement())
+  solicitacaoId    Int              @map("solicitacao_id")
+  usuarioId        Int?             @map("usuario_id")
+  campo            String
+  valorAnterior    String?          @map("valor_anterior")
+  valorNovo        String?          @map("valor_novo")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  solicitacao      SolicitacaoAtivo @relation(fields: [solicitacaoId], references: [id])
+
+  @@index([solicitacaoId])
+  @@map("solicitacoes_auditoria")
 }
