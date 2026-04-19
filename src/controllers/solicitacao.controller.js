@@ -233,7 +233,7 @@ const atualizar = async (req, res) => {
     };
 
     const novoEstado = derivarEstado(novasEtapas);
-    const novoStatus = novoEstado === 'Entregue' ? 'ENCERRADO' : anterior.status;
+    const novoStatus = req.body.status !== undefined ? req.body.status : (novoEstado === 'Entregue' ? 'ENCERRADO' : anterior.status);
     const novosDiasAtraso = calcularDiasAtraso(novasEtapas.previsaoChegada, novasEtapas.dataChegada);
 
     const dataAtualizar = {
