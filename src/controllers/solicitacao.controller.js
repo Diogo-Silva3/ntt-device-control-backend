@@ -385,8 +385,8 @@ const dashboard = async (req, res) => {
     const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
 
     const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, rankingUnidades] = await Promise.all([
-      prisma.solicitacaoAtivo.count({ where: { empresaId, status: 'ABERTO' } }),
-      prisma.solicitacaoAtivo.count({ where: { empresaId, status: 'EM_ANDAMENTO' } }),
+      prisma.solicitacaoAtivo.count({ where: { empresaId } }),
+      prisma.solicitacaoAtivo.count({ where: { empresaId, status: { not: 'ENCERRADO' } } }),
       prisma.solicitacaoAtivo.count({
         where: { empresaId, status: 'ENCERRADO', updatedAt: { gte: inicioMes, lte: fimMes } },
       }),
