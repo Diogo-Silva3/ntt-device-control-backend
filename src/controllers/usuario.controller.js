@@ -131,6 +131,14 @@ const atualizar = async (req, res) => {
       include: { unidade: true },
     });
 
+    // Se unidade foi alterada, atualiza solicitações onde este usuário é técnico
+    if (data.unidadeId !== undefined) {
+      await prisma.solicitacaoAtivo.updateMany({
+        where: { tecnicoId: targetId },
+        data: { unidadeId: data.unidadeId },
+      });
+    }
+
     const { senha: _, ...usuarioSemSenha } = usuario;
     res.json(usuarioSemSenha);
   } catch (err) {
