@@ -46,6 +46,16 @@ const listar = async (req, res) => {
 
     const agora = new Date();
 
+    // Busca inteligente: procura em múltiplos campos
+    const buscaWhere = busca ? {
+      OR: [
+        { numeroChamado: { contains: busca, mode: 'insensitive' } },
+        { descricao: { contains: busca, mode: 'insensitive' } },
+        { tecnico: { nome: { contains: busca, mode: 'insensitive' } } },
+        { unidade: { nome: { contains: busca, mode: 'insensitive' } } },
+      ]
+    } : {};
+
     const where = {
       empresaId,
       ...(status && { status }),
@@ -53,7 +63,7 @@ const listar = async (req, res) => {
       ...(tipo && { tipo }),
       ...(tecnicoId && { tecnicoId: parseInt(tecnicoId) }),
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
-      ...(busca && { numeroChamado: { contains: busca, mode: 'insensitive' } }),
+      ...buscaWhere,
       ...((dataInicio || dataFim) && {
         createdAt: {
           ...(dataInicio && { gte: new Date(dataInicio) }),
