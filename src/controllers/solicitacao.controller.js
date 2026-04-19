@@ -424,7 +424,9 @@ const dashboard = async (req, res) => {
       totalAbertas,
       totalEmAndamento,
       totalEncerradasMes,
+      encerradasNoMes: totalEncerradasMes,
       totalComAtraso,
+      comAtraso: totalComAtraso,
       rankingUnidades: ranking,
     });
   } catch (err) {
