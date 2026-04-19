@@ -37,12 +37,14 @@ const listar = async (req, res) => {
     const empresaId = req.usuario.empresaId;
     const {
       status, estado, tipo, tecnicoId, unidadeId,
-      dataInicio, dataFim, busca,
+      dataInicio, dataFim, busca, atraso,
       page = 1, limit = 20,
     } = req.query;
 
     const take = Math.min(Math.max(parseInt(limit) || 20, 10), 100);
     const skip = (Math.max(parseInt(page) || 1, 1) - 1) * take;
+
+    const agora = new Date();
 
     const where = {
       empresaId,
@@ -57,6 +59,11 @@ const listar = async (req, res) => {
           ...(dataInicio && { gte: new Date(dataInicio) }),
           ...(dataFim && { lte: new Date(dataFim) }),
         },
+      }),
+      ...(atraso === '1' && {
+        status: { not: 'ENCERRADO' },
+        previsaoChegada: { lt: agora },
+        dataChegada: null,
       }),
     };
 
@@ -384,9 +391,14 @@ const dashboard = async (req, res) => {
     const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
     const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
 
-    const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, rankingUnidades] = await Promise.all([
-      prisma.solicitacaoAtivo.count({ where: { empresaId } }),
+    const ESTADOS = [
+      'Aberto', 'Aguardando NF', 'NF Solicitada', 'Aguardando Coleta',
+      'Coleta Solicitada', 'Em Trânsito', 'Aguardando Entrega', 'Entregue',
+    ];
+
+    const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, porEstadoRaw, rankingUnidades] = await Promise.all([
       prisma.solicitacaoAtivo.count({ where: { empresaId, status: { not: 'ENCERRADO' } } }),
+      prisma.solicitacaoAtivo.count({ where: { empresaId, status: 'EM_ANDAMENTO' } }),
       prisma.solicitacaoAtivo.count({
         where: { empresaId, status: 'ENCERRADO', updatedAt: { gte: inicioMes, lte: fimMes } },
       }),
@@ -399,6 +411,11 @@ const dashboard = async (req, res) => {
         },
       }),
       prisma.solicitacaoAtivo.groupBy({
+        by: ['estado'],
+        where: { empresaId, status: { not: 'ENCERRADO' } },
+        _count: { id: true },
+      }),
+      prisma.solicitacaoAtivo.groupBy({
         by: ['unidadeId'],
         where: { empresaId, status: { not: 'ENCERRADO' } },
         _count: { id: true },
@@ -406,6 +423,14 @@ const dashboard = async (req, res) => {
         take: 10,
       }),
     ]);
+
+    // Montar objeto porEstado com todos os estados zerados
+    const porEstado = Object.fromEntries(ESTADOS.map(e => [e, 0]));
+    porEstadoRaw.forEach(item => {
+      if (item.estado && porEstado.hasOwnProperty(item.estado)) {
+        porEstado[item.estado] = item._count.id;
+      }
+    });
 
     // Enriquecer ranking com nomes das unidades
     const unidadeIds = rankingUnidades.map(r => r.unidadeId);
@@ -427,6 +452,7 @@ const dashboard = async (req, res) => {
       encerradasNoMes: totalEncerradasMes,
       totalComAtraso,
       comAtraso: totalComAtraso,
+      porEstado,
       rankingUnidades: ranking,
     });
   } catch (err) {
