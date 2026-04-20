@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const ctrl = require('../controllers/equipamento.controller');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth.middleware');
+const { validarAgendamento } = require('../middleware/validacao-agendamento');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -27,9 +28,9 @@ router.get('/:id/qrcode', ctrl.qrcode);
 router.post('/', ctrl.criar);
 router.post('/regenerar-qrcodes', adminMiddleware, ctrl.regenerarQrCodes);
 router.post('/:id/foto', upload.single('foto'), ctrl.uploadFoto);
-router.put('/:id', ctrl.atualizar);
+router.put('/:id', validarAgendamento, ctrl.atualizar);
 router.put('/:id/checklist', ctrl.atualizarChecklist);
-router.put('/:id/agendamento', ctrl.atualizarAgendamento);
+router.put('/:id/agendamento', validarAgendamento, ctrl.atualizarAgendamento);
 router.delete('/:id', adminMiddleware, ctrl.deletar);
 
 module.exports = router;
