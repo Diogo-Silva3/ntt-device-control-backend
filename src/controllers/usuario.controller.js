@@ -17,9 +17,9 @@ const listar = async (req, res) => {
       ...(semAcesso === 'true' && { senha: null }),
       ...(busca && {
         OR: [
-          { nome: { contains: busca } },
-          { email: { contains: busca } },
-          { funcao: { contains: busca } },
+          { nome: { contains: busca, mode: 'insensitive' } },
+          { email: { contains: busca, mode: 'insensitive' } },
+          { funcao: { contains: busca, mode: 'insensitive' } },
         ],
       }),
     };

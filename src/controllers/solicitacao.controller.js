@@ -406,7 +406,7 @@ const dashboard = async (req, res) => {
       'Coleta Solicitada', 'Em Trânsito', 'Aguardando Entrega', 'Entregue',
     ];
 
-    const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, porEstadoRaw, rankingUnidades] = await Promise.all([
+    const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, porEstadoRaw, rankingUnidades, porTipoRaw, totalEncerrados] = await Promise.all([
       prisma.solicitacaoAtivo.count({ where: { empresaId, status: { not: 'ENCERRADO' } } }),
       prisma.solicitacaoAtivo.count({ where: { empresaId, status: 'EM_ANDAMENTO' } }),
       prisma.solicitacaoAtivo.count({
@@ -432,6 +432,14 @@ const dashboard = async (req, res) => {
         orderBy: { _count: { id: 'desc' } },
         take: 10,
       }),
+      prisma.solicitacaoAtivo.groupBy({
+        by: ['tipo'],
+        where: { empresaId },
+        _count: { id: true },
+      }),
+      prisma.solicitacaoAtivo.count({
+        where: { empresaId, status: 'ENCERRADO' },
+      }),
     ]);
 
     // Montar objeto porEstado com todos os estados zerados
@@ -441,6 +449,17 @@ const dashboard = async (req, res) => {
         porEstado[item.estado] = item._count.id;
       }
     });
+
+    // Montar objeto porTipo
+    const porTipo = {};
+    porTipoRaw.forEach(item => {
+      if (item.tipo) {
+        porTipo[item.tipo] = item._count.id;
+      }
+    });
+
+    // Total é a soma de todos os tipos
+    const totalPorTipo = Object.values(porTipo).reduce((a, b) => a + b, 0);
 
     // Enriquecer ranking com nomes das unidades
     const unidadeIds = rankingUnidades.map(r => r.unidadeId);
@@ -455,14 +474,19 @@ const dashboard = async (req, res) => {
       total: r._count.id,
     }));
 
+    const total = totalPorTipo;
+
     res.json({
+      total,
       totalAbertas,
       totalEmAndamento,
       totalEncerradasMes,
       encerradasNoMes: totalEncerradasMes,
       totalComAtraso,
       comAtraso: totalComAtraso,
+      totalEncerrados,
       porEstado,
+      porTipo,
       rankingUnidades: ranking,
     });
   } catch (err) {

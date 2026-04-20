@@ -183,7 +183,7 @@ const criar = async (req, res) => {
 
 const atualizar = async (req, res) => {
   try {
-    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa } = req.body;
+    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa, agendamento } = req.body;
     const id = parseInt(req.params.id);
 
     // Busca estado atual para comparar mudanças relevantes
@@ -236,6 +236,7 @@ const atualizar = async (req, res) => {
             ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
             ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
             ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
+            ...(agendamento && { agendamento: JSON.stringify(agendamento), ...(agendamento.data && { dataEntrega: new Date(agendamento.data) }) }),
             unidadeId: novaUnidadeId,
             tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
           },
@@ -265,13 +266,20 @@ const atualizar = async (req, res) => {
           ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
           ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
           ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
+          ...(agendamento && { agendamento: JSON.stringify(agendamento), ...(agendamento.data && { dataEntrega: new Date(agendamento.data) }) }),
           tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
         },
         include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
       });
     }
 
-    res.json(equipamento);
+    res.json({
+      ...equipamento,
+      agendamento: equipamento.agendamento ? JSON.parse(equipamento.agendamento) : null,
+      checklistPreparacao: equipamento.checklistPreparacao ? JSON.parse(equipamento.checklistPreparacao) : null,
+      checklistEntrega: equipamento.checklistEntrega ? JSON.parse(equipamento.checklistEntrega) : null,
+      historicoEtapas: equipamento.historicoEtapas ? JSON.parse(equipamento.historicoEtapas) : [],
+    });
 
     // Monta detalhes ricos: menciona técnico se foi designado/alterado
     const novoTecnicoId = tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined;
@@ -286,6 +294,9 @@ const atualizar = async (req, res) => {
       const nomeAnterior = anterior?.tecnico?.nome || '—';
       const nomeNovo = novoTecnico?.nome || '—';
       detalhesLog += ` — técnico: ${nomeAnterior} → ${nomeNovo}`;
+    }
+    if (agendamento && agendamento.data) {
+      detalhesLog += ` — agendamento: ${agendamento.data}`;
     }
 
     registrarLog({

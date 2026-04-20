@@ -1,18 +1,8 @@
 const router = require('express').Router();
-const rateLimit = require('express-rate-limit');
 const { login, register, me, esqueciSenha, redefinirSenha } = require('../controllers/auth.controller');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth.middleware');
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  validate: { xForwardedForHeader: false }, // evita erro em VPS com proxy/nginx
-});
-
-router.post('/login', loginLimiter, login);
+router.post('/login', login);
 router.post('/register', authMiddleware, adminMiddleware, register);
 router.post('/esqueci-senha', esqueciSenha);
 router.post('/redefinir-senha', redefinirSenha);
