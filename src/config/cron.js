@@ -1,5 +1,6 @@
 const prisma = require('./prisma');
 const { enviarEmail, templateLembrete } = require('./email');
+const { iniciarCronSincronizacao } = require('./sincronizacao-cron');
 
 // Roda a cada hora verificando entregas agendadas para amanhã
 const iniciarCron = () => {
@@ -70,6 +71,9 @@ const iniciarCron = () => {
   verificarLembretes();
   setInterval(verificarLembretes, INTERVALO);
   console.log('[CRON] Serviço de lembretes iniciado');
+  
+  // Inicia cron de sincronização
+  iniciarCronSincronizacao();
 };
 
 module.exports = { iniciarCron };

@@ -19,6 +19,7 @@ const solicitacaoRoutes = require('./routes/solicitacao.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const { iniciarCron } = require('./config/cron');
+const { middlewareSincronizacao } = require('./middleware/sincronizacao-dados');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -58,6 +59,9 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Middleware de sincronização (verifica dados em background)
+app.use(middlewareSincronizacao);
 
 // Rotas
 app.use('/api/auth', authRoutes);
