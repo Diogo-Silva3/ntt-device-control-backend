@@ -23,6 +23,20 @@ const validarAgendamento = async (req, res, next) => {
       });
     }
     
+    // NOVO: Se tem agendamento, DEVE ter colaboradorId
+    if (agendamento && !agendamento.colaboradorId) {
+      return res.status(400).json({
+        error: 'Erro de validação: Agendamento requer um colaborador selecionado'
+      });
+    }
+    
+    // NOVO: Se tem agendamento, DEVE ter data
+    if (agendamento && !agendamento.data) {
+      return res.status(400).json({
+        error: 'Erro de validação: Agendamento requer uma data'
+      });
+    }
+    
     next();
   } catch (err) {
     console.error('Erro no middleware de validação:', err);
