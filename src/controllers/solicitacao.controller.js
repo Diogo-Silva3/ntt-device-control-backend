@@ -361,9 +361,22 @@ const excluir = async (req, res) => {
 const board = async (req, res) => {
   try {
     const empresaId = req.usuario.empresaId;
+    const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
+    
+    // Se técnico, filtra por projetoId. Se admin, usa do header
+    let projetoId = null;
+    if (!isAdmin && req.usuario.projetoId) {
+      projetoId = req.usuario.projetoId;
+    } else if (isAdmin && req.headers['x-projeto-id']) {
+      projetoId = parseInt(req.headers['x-projeto-id']);
+    }
 
     const solicitacoes = await prisma.solicitacaoAtivo.findMany({
-      where: { empresaId, status: { not: 'ENCERRADO' } },
+      where: { 
+        empresaId, 
+        status: { not: 'ENCERRADO' },
+        ...(projetoId && { projetoId })
+      },
       include: {
         tecnico: { select: { id: true, nome: true } },
         unidade: { select: { id: true, nome: true } },
