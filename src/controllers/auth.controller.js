@@ -24,12 +24,21 @@ const login = async (req, res) => {
 
     const usuario = await prisma.usuario.findFirst({
       where: { email, ativo: true },
-      include: { empresa: true, unidade: true },
+      include: { empresa: true, unidade: true, projeto: true },
     });
 
     if (!usuario || !usuario.senha) {
       return res.status(401).json({ error: 'Credenciais inválidas' });
     }
+
+    console.log('[LOGIN] Usuário encontrado no banco:', {
+      id: usuario.id,
+      email: usuario.email,
+      role: usuario.role,
+      projetoId: usuario.projetoId,
+      empresaId: usuario.empresaId,
+      projeto: usuario.projeto?.nome,
+    });
 
     const senhaValida = await bcrypt.compare(senha, usuario.senha);
     if (!senhaValida) {
@@ -45,12 +54,19 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: usuario.id, email: usuario.email, role: usuario.role, empresaId: usuario.empresaId },
+      { id: usuario.id, email: usuario.email, role: usuario.role, empresaId: usuario.empresaId, projetoId: usuario.projetoId },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     const { senha: _, ...usuarioSemSenha } = usuario;
+    console.log('[LOGIN] Usuário retornado:', {
+      id: usuarioSemSenha.id,
+      email: usuarioSemSenha.email,
+      role: usuarioSemSenha.role,
+      projetoId: usuarioSemSenha.projetoId,
+      empresaId: usuarioSemSenha.empresaId,
+    });
     res.json({ token, usuario: usuarioSemSenha });
 
     // Log de acesso (assíncrono, não bloqueia resposta)

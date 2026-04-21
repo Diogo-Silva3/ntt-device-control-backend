@@ -29,15 +29,43 @@ const maquinasAgendadas = await prisma.equipamento.count(QUERY_AGENDADOS);
 ### Regra: Integridade Referencial
 Quando um equipamento tem `agendamento` preenchido, DEVE ter `statusProcesso: 'Agendado para Entrega'`.
 
+### Regras de Agendamento (CRÍTICO)
+**Nenhum equipamento pode ser agendado sem:**
+1. ✓ `agendamento.colaboradorId` - Colaborador selecionado
+2. ✓ `agendamento.data` - Data de entrega
+3. ✓ `statusProcesso: 'Agendado para Entrega'` - Status correto
+
 ### Implementação
 - Use middleware de validação em todas as rotas que modificam agendamento
 - Valide ANTES de salvar no banco
 - Retorne erro claro se validação falhar
+- Frontend também valida ANTES de enviar
 
 ```javascript
 // Middleware validarAgendamento verifica:
+if (agendamento && !agendamento.colaboradorId) {
+  return res.status(400).json({ error: 'Agendamento requer um colaborador selecionado' });
+}
+if (agendamento && !agendamento.data) {
+  return res.status(400).json({ error: 'Agendamento requer uma data' });
+}
 if (agendamento && statusProcesso !== 'Agendado para Entrega') {
   return res.status(400).json({ error: 'Inconsistência detectada' });
+}
+```
+
+### Frontend Validation
+```javascript
+// Em EquipamentoDetalhePage.jsx - função avancar()
+if (etapaAtual.temAgendamento) {
+  if (!agendamento.colaboradorId) {
+    alert('Selecione um colaborador para agendar');
+    return;
+  }
+  if (!agendamento.data) {
+    alert('Selecione uma data para agendar');
+    return;
+  }
 }
 ```
 
@@ -148,6 +176,106 @@ pm2 logs ntt-backend
 
 # Executar teste
 node /var/www/backend/tests/dashboard.test.js
+```
+
+## 11. Fluxo de Agendamento (Lançamentos Futuros)
+
+### Regra de Ouro: Agendamento SÓ em PREPARAÇÃO
+**NUNCA** permitir agendamento em Atribuições. Razões:
+- ✓ Evita inconsistência de dados
+- ✓ Histórico claro e rastreável
+- ✓ Validação centralizada
+- ✓ Fluxo único e sem confusão
+- ✓ Previne bugs futuros
+
+### Técnico Automático
+**Se técnico está logado:**
+- ✓ Seu ID é atribuído automaticamente
+- ✓ Select de técnico fica DESABILITADO
+- ✓ Não pode selecionar outro técnico
+- ✓ Mensagem: "Seu técnico é atribuído automaticamente"
+
+**Se admin está logado:**
+- ✓ Pode selecionar qualquer técnico
+- ✓ Select de técnico fica HABILITADO
+
+### Passo a Passo Correto
+1. **Técnico prepara equipamento** → StatusProcesso: "Asset Registrado"
+2. **Técnico clica "Documentos enviados — Avançar"** → Vai para etapa "Agendado p/ Entrega"
+3. **Sistema exibe:**
+   - Técnico responsável: Seu nome (desabilitado)
+   - Colaborador: Selecionar (obrigatório)
+   - Data: Selecionar (obrigatório)
+   - Horário: Selecionar (opcional)
+   - Local: Selecionar (opcional)
+4. **Se não preencher colaborador ou data:**
+   - Frontend mostra alert: "Selecione um colaborador para agendar"
+   - Não envia para backend
+5. **Se preencher tudo corretamente:**
+   - Frontend envia: `PUT /equipamentos/{id}` com agendamento
+   - Backend valida com middleware
+   - Se válido: Salva agendamento + muda statusProcesso
+   - Dashboard atualiza automaticamente
+   - Card "AGENDADAS" incrementa +1
+
+### Validação em Dois Níveis
+```
+Frontend (UX) → Backend (Segurança)
+   ↓                ↓
+Alert se vazio  Rejeita se vazio
+   ↓                ↓
+Não envia      Retorna erro 400
+```
+
+### Atribuições (Vinculações) - SÓ Gerenciamento
+Em Atribuições, o técnico pode:
+- ✓ Reagendar (mudar data de agendamento já feito)
+- ✓ Marcar como entregue
+- ✓ Marcar como não compareceu
+- ✓ Transferir para outro técnico
+- ✗ **NUNCA** criar novo agendamento
+
+### Proteção Implementada
+```javascript
+// Em vinculacao.controller.js - função criar()
+if (dataAgendamento) {
+  return res.status(400).json({ 
+    error: 'Agendamento deve ser feito na etapa de PREPARAÇÃO, não em Atribuições' 
+  });
+}
+
+// Em EquipamentoModal.jsx e EquipamentoDetalhePage.jsx
+if (isTecnico) {
+  // Select desabilitado, mostra seu próprio nome
+  <select disabled={isTecnico} ...>
+  {isTecnico && <p>Seu técnico é atribuído automaticamente</p>}
+}
+```
+
+### Resultado Esperado
+- ✓ Equipamento com `statusProcesso: 'Agendado para Entrega'`
+- ✓ Agendamento com `colaboradorId`, `data`, `horario`, `local`
+- ✓ Técnico responsável = técnico logado (se for técnico)
+- ✓ Vinculação criada com status `PENDENTE`
+- ✓ Dashboard conta corretamente
+- ✓ Aba "Agendadas" mostra equipamento
+- ✓ Histórico claro e rastreável
+
+### Teste Manual
+```bash
+# 1. Logar como TÉCNICO
+# 2. Ir para Preparação
+# 3. Verificar que select de técnico está desabilitado
+# 4. Agendar equipamento
+# 5. Verificar que técnico responsável é o técnico logado
+# 6. Ir para Atribuições
+# 7. Tentar criar nova atribuição com dataAgendamento
+#    → Deve retornar erro: "Agendamento deve ser feito na etapa de PREPARAÇÃO"
+
+# 8. Logar como ADMIN
+# 9. Ir para Preparação
+# 10. Verificar que select de técnico está HABILITADO
+# 11. Pode selecionar qualquer técnico
 ```
 
 ---

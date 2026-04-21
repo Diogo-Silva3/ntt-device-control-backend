@@ -57,6 +57,13 @@ const criar = async (req, res) => {
       softwaresDe, softwaresPara, dataAgendamento,
     } = req.body;
 
+    // NOVO: Rejeitar se tentar agendar via Atribuições
+    if (dataAgendamento) {
+      return res.status(400).json({ 
+        error: 'Agendamento deve ser feito na etapa de PREPARAÇÃO, não em Atribuições' 
+      });
+    }
+
     if (!tecnicoId) {
       return res.status(400).json({ error: 'Técnico responsável é obrigatório' });
     }
@@ -78,7 +85,7 @@ const criar = async (req, res) => {
         tipoOperacao: tipoOperacao || 'Máquina nova e usuário novo',
         softwaresDe,
         softwaresPara,
-        dataAgendamento: dataAgendamento ? new Date(dataAgendamento) : null,
+        dataAgendamento: null, // NUNCA permite agendamento aqui
         statusEntrega: 'PENDENTE',
       },
       include: includeCompleto,
@@ -88,7 +95,7 @@ const criar = async (req, res) => {
       where: { id: parseInt(equipamentoId) },
       data: {
         status: 'EM_USO',
-        ...(dataAgendamento && { statusProcesso: 'Agendado para Entrega' }),
+        // NUNCA muda statusProcesso aqui - deve ser feito na PREPARAÇÃO
       },
     });
 
@@ -100,25 +107,6 @@ const criar = async (req, res) => {
         descricao: `Equipamento atribuído ao usuário ${vinculacao.usuario.nome}. Tipo: ${tipoOperacao || 'Máquina nova / Usuário novo'}. Técnico: ${vinculacao.tecnico?.nome || ''}`,
       },
     });
-
-    // Envia e-mail de confirmação se colaborador tiver e-mail e houver data agendada
-    if (vinculacao.usuario?.email && dataAgendamento) {
-      const eq = vinculacao.equipamento;
-      const dataFormatada = new Date(dataAgendamento).toLocaleString('pt-BR', {
-        timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit',
-        year: 'numeric', hour: '2-digit', minute: '2-digit',
-      });
-      enviarEmail({
-        para: vinculacao.usuario.email,
-        assunto: 'Tech Refresh - Entrega de equipamento agendada',
-        html: templateAgendamento({
-          colaborador: vinculacao.usuario.nome,
-          equipamento: `${eq?.marca || ''} ${eq?.modelo || ''}`.trim() || 'Equipamento',
-          data: dataFormatada,
-          tecnico: vinculacao.tecnico?.nome,
-        }),
-      }).catch(err => console.error('[EMAIL] Erro ao enviar:', err.message));
-    }
 
     res.status(201).json(vinculacao);
 

@@ -4,9 +4,16 @@ const getDashboard = async (req, res) => {
   try {
     const empresaId = req.usuario.empresaId;
     const unidadeIdParam = req.query.unidadeId ? parseInt(req.query.unidadeId) : null;
-    const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
+    
+    // Se técnico, usa projetoId do usuário. Se admin, usa do header
+    let projetoId = null;
+    if (!isAdmin && req.usuario.projetoId) {
+      projetoId = req.usuario.projetoId;
+    } else if (isAdmin && req.headers['x-projeto-id']) {
+      projetoId = parseInt(req.headers['x-projeto-id']);
+    }
 
     const unidadeFiltro = isAdmin
       ? (unidadeIdParam || null)
@@ -15,6 +22,7 @@ const getDashboard = async (req, res) => {
     const hoje = new Date();
     const tresDiasAtras = new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000);
 
+    // Dashboard mostra TODOS os equipamentos da empresa/projeto (não filtra por tecnicoId)
     const whereEq = {
       empresaId,
       ...(projetoId && { projetoId }),
@@ -108,7 +116,11 @@ const getDashboard = async (req, res) => {
       }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({
-        where: { empresaId, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' },
+        where: { 
+          empresaId, 
+          status: { not: 'DESCARTADO' }, 
+          statusProcesso: 'Agendado para Entrega'
+        },
       }),
       prisma.equipamento.count({
         where: {
@@ -180,7 +192,12 @@ const getDashboard = async (req, res) => {
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
       processo: { emPreparacao, aguardandoImagem, comImagem: emPreparacao, agendados, entregues },
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
-      techRefresh: { totalProjeto, maquinasAgendadas, maquinasEntregues, maquinasFaltamEntregar },
+      techRefresh: { 
+        totalProjeto, 
+        maquinasAgendadas: isAdmin ? maquinasAgendadas : agendados,
+        maquinasEntregues: isAdmin ? maquinasEntregues : entregues, 
+        maquinasFaltamEntregar 
+      },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
       porTipo: porTipo.map(t => ({ tipo: t.tipo || 'Sem tipo', total: t._count.tipo })),

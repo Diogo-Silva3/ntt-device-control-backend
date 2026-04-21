@@ -109,13 +109,14 @@ const atualizar = async (req, res) => {
 
     if (isAdmin) {
       // Admin pode alterar tudo
-      const { nome, email, funcao, role, unidadeId, ativo, senha, empresaId } = req.body;
+      const { nome, email, funcao, role, unidadeId, ativo, senha, empresaId, projetoId } = req.body;
       data = { nome: nome?.toUpperCase() };
       if (email !== undefined) data.email = email || null;
       if (funcao !== undefined) data.funcao = funcao || null;
       if (role !== undefined) data.role = role;
       if (ativo !== undefined) data.ativo = ativo;
       if (unidadeId !== undefined) data.unidadeId = unidadeId ? parseInt(unidadeId) : null;
+      if (projetoId !== undefined) data.projetoId = projetoId ? parseInt(projetoId) : null;
       if (empresaId && req.usuario.role === 'SUPERADMIN') data.empresaId = parseInt(empresaId);
       if (senha) data.senha = await bcrypt.hash(senha, 10);
     } else {
@@ -128,7 +129,7 @@ const atualizar = async (req, res) => {
     const usuario = await prisma.usuario.update({
       where: { id: targetId },
       data,
-      include: { unidade: true },
+      include: { unidade: true, projeto: true },
     });
 
     // Se unidade foi alterada, atualiza solicitações onde este usuário é técnico
