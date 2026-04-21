@@ -20,17 +20,19 @@ const req = require('https').request(options, (res) => {
   let body = '';
   res.on('data', (chunk) => body += chunk);
   res.on('end', () => {
+    console.log('Status:', res.statusCode);
+    console.log('Body:', body);
     try {
       const json = JSON.parse(body);
-      console.log('Resposta do login:');
-      console.log(JSON.stringify(json.usuario, null, 2));
+      console.log('\nResposta completa:');
+      console.log(JSON.stringify(json, null, 2));
       if (json.usuario?.projetoId) {
         console.log('\n✅ projetoId:', json.usuario.projetoId);
       } else {
         console.log('\n❌ projetoId não retornado');
       }
     } catch (e) {
-      console.log('Erro ao parsear:', body);
+      console.log('Erro ao parsear:', e.message);
     }
   });
 });
