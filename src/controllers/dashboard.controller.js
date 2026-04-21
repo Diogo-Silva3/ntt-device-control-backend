@@ -15,9 +15,9 @@ const getDashboard = async (req, res) => {
       projetoId = parseInt(req.headers['x-projeto-id']);
     }
 
-    const unidadeFiltro = isAdmin
-      ? (unidadeIdParam || null)
-      : (req.usuario.unidadeId || null);
+    // Para técnicos, NÃO filtra por unidade (equipamentos podem estar em qualquer unidade)
+    // Para admins, filtra pela unidade do parâmetro ou nenhuma
+    const unidadeFiltro = isAdmin ? (unidadeIdParam || null) : null;
 
     const hoje = new Date();
     const tresDiasAtras = new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000);
