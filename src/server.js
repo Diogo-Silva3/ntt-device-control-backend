@@ -27,8 +27,7 @@ const PORT = process.env.PORT || 3001;
 // Middlewares
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://nttdevicecontrol.web.app',
-  'https://nttdevicecontrol.firebaseapp.com',
+  'http://localhost:3000',
   'https://tech-refresh.cloud',
   'https://www.tech-refresh.cloud',
   process.env.FRONTEND_URL,

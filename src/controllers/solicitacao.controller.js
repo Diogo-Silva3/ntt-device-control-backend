@@ -91,7 +91,14 @@ const listar = async (req, res) => {
       }),
     ]);
 
-    res.json({ data, total, page: parseInt(page) || 1, limit: take });
+    // Adicionar os campos de data que faltam
+    const dataComDatas = data.map(s => ({
+      ...s,
+      dataSolicitacaoNF: s.dataSolicitacaoNF,
+      dataDefinicao: s.dataDefinicao,
+    }));
+
+    res.json({ data: dataComDatas, total, page: parseInt(page) || 1, limit: take });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao listar solicitações' });
@@ -364,8 +371,7 @@ const board = async (req, res) => {
 
     const solicitacoes = await prisma.solicitacaoAtivo.findMany({
       where: { 
-        empresaId, 
-        status: { not: 'ENCERRADO' }
+        empresaId
       },
       include: {
         tecnico: { select: { id: true, nome: true } },
@@ -425,7 +431,7 @@ const dashboard = async (req, res) => {
       }),
       prisma.solicitacaoAtivo.groupBy({
         by: ['estado'],
-        where: { empresaId, status: { not: 'ENCERRADO' } },
+        where: { empresaId },
         _count: { id: true },
       }),
       prisma.solicitacaoAtivo.groupBy({
