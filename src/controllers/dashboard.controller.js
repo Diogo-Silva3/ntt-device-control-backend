@@ -204,7 +204,9 @@ const getDashboard = async (req, res) => {
     console.log('  totalEquipamentos:', totalEquipamentos);
     console.log('  emUso:', emUso);
     console.log('  disponiveis:', disponiveis);
+    console.log('  agendados:', agendados);
     console.log('  entregues:', entregues);
+    console.log('  maquinasAgendadas:', maquinasAgendadas);
     console.log('  maquinasEntregues:', maquinasEntregues);
     console.log('  totalAtribuido:', totalAtribuido);
 
