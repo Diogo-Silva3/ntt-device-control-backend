@@ -7,6 +7,11 @@ const getDashboard = async (req, res) => {
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
     
+    // LOG TEMPORÁRIO
+    console.log('[DASHBOARD] Usuario:', req.usuario.nome);
+    console.log('[DASHBOARD] Role:', req.usuario.role);
+    console.log('[DASHBOARD] isAdmin:', isAdmin);
+    
     // Se técnico, usa projetoId do usuário. Se admin, usa do header
     let projetoId = null;
     if (!isAdmin && req.usuario.projetoId) {
@@ -64,6 +69,7 @@ const getDashboard = async (req, res) => {
       totalProjeto,
       maquinasAgendadas,
       maquinasEntregues,
+      totalAtribuido,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
@@ -117,7 +123,7 @@ const getDashboard = async (req, res) => {
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({
         where: { 
-          empresaId, 
+          ...whereEq,
           status: { not: 'DESCARTADO' }, 
           statusProcesso: 'Agendado para Entrega'
         },
@@ -127,6 +133,16 @@ const getDashboard = async (req, res) => {
           ...whereEq,
           status: { not: 'DESCARTADO' },
           statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
+        },
+      }),
+      prisma.vinculacao.count({
+        where: {
+          ativa: true,
+          statusEntrega: 'ENTREGUE',
+          equipamento: { 
+            ...(projetoId && { projetoId }),
+            empresaId,
+          },
         },
       }),
     ]);
@@ -189,6 +205,7 @@ const getDashboard = async (req, res) => {
     });
 
     res.json({
+      _timestamp: Date.now(), // Força atualização do cache
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
       processo: { emPreparacao, aguardandoImagem, comImagem: emPreparacao, agendados, entregues },
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
@@ -196,7 +213,9 @@ const getDashboard = async (req, res) => {
         totalProjeto, 
         maquinasAgendadas: isAdmin ? maquinasAgendadas : agendados,
         maquinasEntregues: isAdmin ? maquinasEntregues : entregues, 
-        maquinasFaltamEntregar 
+        maquinasFaltamEntregar,
+        totalAtribuido: totalAtribuido, // Usar vinculações ENTREGUE, não equipamentos
+        _debug: { isAdmin, totalAtribuido, maquinasEntregues }, // Debug temporário
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,

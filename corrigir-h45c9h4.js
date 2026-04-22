@@ -1,43 +1,36 @@
-const prisma = require('./src/config/prisma');
+require('dotenv').config();
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 async function corrigir() {
   try {
-    console.log('=== Corrigindo H45C9H4 ===\n');
-    
-    const eq = await prisma.equipamento.findFirst({
-      where: { serialNumber: 'H45C9H4' }
+    console.log('=== CORRIGINDO H45C9H4 ===\n');
+
+    const equipamento = await prisma.equipamento.findFirst({
+      where: { serialNumber: 'H45C9H4' },
     });
-    
-    if (!eq) {
-      console.log('Equipamento não encontrado');
-      return;
-    }
-    
-    console.log('Equipamento encontrado:');
-    console.log(`- Serial: ${eq.serialNumber}`);
-    console.log(`- StatusProcesso: ${eq.statusProcesso}`);
-    console.log(`- Agendamento: ${eq.agendamento}`);
-    
-    if (eq.statusProcesso === 'Agendado para Entrega' && !eq.agendamento) {
-      console.log('\n✓ Corrigindo: Voltando para "Asset Registrado"...');
-      
-      const atualizado = await prisma.equipamento.update({
-        where: { id: eq.id },
-        data: {
-          statusProcesso: 'Asset Registrado',
-          agendamento: null,
-          dataEntrega: null
-        }
-      });
-      
-      console.log('✓ Corrigido com sucesso!');
-      console.log(`- Novo StatusProcesso: ${atualizado.statusProcesso}`);
-    } else {
-      console.log('\n✗ Equipamento não precisa de correção');
-    }
-    
-  } catch (err) {
-    console.error('Erro:', err.message);
+
+    console.log(`Equipamento: ${equipamento.serialNumber}`);
+    console.log(`  Status atual: ${equipamento.status}`);
+    console.log(`  StatusProcesso: ${equipamento.statusProcesso}`);
+
+    // Equipamento agendado para entrega não deve estar DISPONIVEL
+    // Deve estar em preparação (status diferente de DISPONIVEL)
+    await prisma.equipamento.update({
+      where: { id: equipamento.id },
+      data: {
+        status: 'EM_PREPARACAO', // ou outro status que não seja DISPONIVEL
+      },
+    });
+
+    console.log(`  Novo status: EM_PREPARACAO\n`);
+
+    console.log('✅ CORREÇÃO CONCLUÍDA!');
+    console.log('\n⚠️  PRÓXIMO PASSO: Reiniciar o backend');
+    console.log('   pm2 restart ntt-backend');
+
+  } catch (error) {
+    console.error('❌ Erro:', error);
   } finally {
     await prisma.$disconnect();
   }

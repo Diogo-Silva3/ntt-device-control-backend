@@ -7,11 +7,11 @@ async function verDados() {
   try {
     console.log('=== VISUALIZANDO DADOS DO BACKUP (SEM RESTAURAR) ===\n');
     
-    const backupFile = 'db_20260420_030001.sql.gz';
+    const backupFile = 'db_20260419_190228.sql.gz';
     const backupPath = `/var/backups/sistema/${backupFile}`;
     
     console.log(`Backup: ${backupFile}`);
-    console.log('Data: 20/04/2026 às 03:00\n');
+    console.log('Data: 19/04/2026 às 19:02\n');
     
     console.log('Descompactando backup temporariamente...');
     await execAsync(`gunzip -c ${backupPath} > /tmp/backup_temp.sql`);
