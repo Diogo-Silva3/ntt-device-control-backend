@@ -218,6 +218,8 @@ const atualizar = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const empresaId = req.usuario.empresaId;
+    const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
+    const isTecnico = req.usuario.role === 'TECNICO';
 
     const anterior = await prisma.solicitacaoAtivo.findUnique({ where: { id } });
     if (!anterior) return res.status(404).json({ error: 'Solicitação não encontrada' });
@@ -229,6 +231,24 @@ const atualizar = async (req, res) => {
       dataDefinicao, dataDefinicaoConfirmada, dataSolicitacaoNF, dataEmissaoNF,
       dataSolicitacaoColeta, dataColeta, previsaoChegada, dataChegada, dataEntrega,
     } = req.body;
+
+    // RESTRIÇÃO: Técnicos só podem editar Definição, Chegada e Entrega
+    if (isTecnico) {
+      const camposRestringidos = [
+        'numeroChamado', 'descricao', 'observacoes', 'tipo',
+        'tecnicoId', 'unidadeId', 'projetoId', 'equipamentoId', 'serialOrigem',
+        'dataDefinicaoConfirmada', 'dataSolicitacaoNF', 'dataEmissaoNF',
+        'dataSolicitacaoColeta', 'dataColeta', 'previsaoChegada', 'status'
+      ];
+      
+      for (const campo of camposRestringidos) {
+        if (req.body[campo] !== undefined) {
+          return res.status(403).json({ 
+            error: `Técnicos não podem editar o campo: ${campo}. Apenas Definição, Chegada e Entrega são permitidas.` 
+          });
+        }
+      }
+    }
 
     // Validações opcionais (só se fornecidos)
     if (numeroChamado !== undefined && !REGEX_CHAMADO.test(numeroChamado)) {
