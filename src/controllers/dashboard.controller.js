@@ -1,4 +1,4 @@
-﻿const prisma = require('../config/prisma');
+const prisma = require('../config/prisma');
 
 const getDashboard = async (req, res) => {
   try {
@@ -7,12 +7,12 @@ const getDashboard = async (req, res) => {
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
     
-    // LOG TEMPOR├üRIO
+    // LOG TEMPORÁRIO
     console.log('[DASHBOARD] Usuario:', req.usuario.nome);
     console.log('[DASHBOARD] Role:', req.usuario.role);
     console.log('[DASHBOARD] isAdmin:', isAdmin);
     
-    // Se t├®cnico, usa projetoId do usu├írio. Se admin, usa do header
+    // Se técnico, usa projetoId do usuário. Se admin, usa do header
     let projetoId = null;
     if (!isAdmin && req.usuario.projetoId) {
       projetoId = req.usuario.projetoId;
@@ -20,14 +20,14 @@ const getDashboard = async (req, res) => {
       projetoId = parseInt(req.headers['x-projeto-id']);
     }
 
-    // Para t├®cnicos, N├âO filtra por unidade (equipamentos podem estar em qualquer unidade)
-    // Para admins, filtra pela unidade do par├ómetro ou nenhuma
+    // Para técnicos, NÃO filtra por unidade (equipamentos podem estar em qualquer unidade)
+    // Para admins, filtra pela unidade do parâmetro ou nenhuma
     const unidadeFiltro = isAdmin ? (unidadeIdParam || null) : null;
 
     const hoje = new Date();
     const tresDiasAtras = new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000);
 
-    // Dashboard mostra TODOS os equipamentos da empresa/projeto (n├úo filtra por tecnicoId)
+    // Dashboard mostra TODOS os equipamentos da empresa/projeto (não filtra por tecnicoId)
     const whereEq = {
       empresaId,
       ...(projetoId && { projetoId }),
@@ -72,7 +72,7 @@ const getDashboard = async (req, res) => {
       totalAtribuido,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
+      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
@@ -81,7 +81,7 @@ const getDashboard = async (req, res) => {
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Novo' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Softwares Instalados' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usu├írio', 'Em Uso'] } } }),
+      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
       prisma.equipamento.groupBy({
         by: ['marca'],
         where: { ...whereEq, marca: { not: null }, status: { not: 'DESCARTADO' } },
@@ -132,22 +132,13 @@ const getDashboard = async (req, res) => {
         where: {
           ...whereEq,
           status: { not: 'DESCARTADO' },
-          statusProcesso: { in: ['Entregue ao Usu├írio', 'Em Uso'] },
-        },
-      }),
-      prisma.vinculacao.count({
-        where: {
-          ativa: true,
-          statusEntrega: 'ENTREGUE',
-          equipamento: { 
-            ...(projetoId && { projetoId }),
-            empresaId,
-          },
+          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
     ]);
 
-    const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
+    // FALTAM ENTREGAR = equipamentos DISPONÍVEIS (prontos para entregar)
+    const maquinasFaltamEntregar = disponiveis;
 
     // Busca nomes das unidades para porUnidade
     const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
@@ -160,7 +151,7 @@ const getDashboard = async (req, res) => {
       .map(u => ({ unidade: unidadeNomeMap[u.unidadeId] || 'Sem unidade', equipamentos: u._count.unidadeId }))
       .sort((a, b) => b.equipamentos - a.equipamentos);
 
-    // Entregas por m├¬s (├║ltimos 6 meses)
+    // Entregas por mês (últimos 6 meses)
     const seisMesesAtras = new Date(hoje.getFullYear(), hoje.getMonth() - 5, 1);
     const entregasPorMesRaw = await prisma.vinculacao.findMany({
       where: {
@@ -204,8 +195,25 @@ const getDashboard = async (req, res) => {
       orderBy: { nome: 'asc' },
     });
 
+    // Adicionar headers para evitar cache
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    console.log('[DASHBOARD] Variáveis recebidas:');
+    console.log('  totalEquipamentos:', totalEquipamentos);
+    console.log('  emUso:', emUso);
+    console.log('  disponiveis:', disponiveis);
+    console.log('  agendados:', agendados);
+    console.log('  entregues:', entregues);
+    console.log('  maquinasAgendadas:', maquinasAgendadas);
+    console.log('  maquinasEntregues:', maquinasEntregues);
+    console.log('  totalAtribuido:', totalAtribuido);
+
     res.json({
-      _timestamp: Date.now(), // For├ºa atualiza├º├úo do cache
+      _timestamp: Date.now(), // Força atualização do cache
+      _version: Math.random(), // Força atualização adicional
+      _cacheBuster: new Date().toISOString(), // Mais um cache buster
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
       processo: { emPreparacao, aguardandoImagem, comImagem: emPreparacao, agendados, entregues },
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
@@ -214,8 +222,7 @@ const getDashboard = async (req, res) => {
         maquinasAgendadas: isAdmin ? maquinasAgendadas : agendados,
         maquinasEntregues: isAdmin ? maquinasEntregues : entregues, 
         maquinasFaltamEntregar,
-        totalAtribuido: totalAtribuido, // Usar vincula├º├Áes ENTREGUE, n├úo equipamentos
-        _debug: { isAdmin, totalAtribuido, maquinasEntregues }, // Debug tempor├írio
+        totalAtribuido: totalAtribuido,
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
@@ -238,7 +245,7 @@ const dashboardTecnicos = async (req, res) => {
     const { mes } = req.query;
     let dataInicio, dataFim;
     if (mes) {
-      if (!/^\d{4}-\d{2}$/.test(mes)) return res.status(400).json({ error: 'Formato de m├¬s inv├ílido. Use YYYY-MM' });
+      if (!/^\d{4}-\d{2}$/.test(mes)) return res.status(400).json({ error: 'Formato de mês inválido. Use YYYY-MM' });
       const [ano, m] = mes.split('-').map(Number);
       dataInicio = new Date(ano, m - 1, 1);
       dataFim = new Date(ano, m, 0, 23, 59, 59);
@@ -267,7 +274,7 @@ const dashboardTecnicos = async (req, res) => {
     res.json(resultado);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar dashboard de t├®cnicos' });
+    res.status(500).json({ error: 'Erro ao buscar dashboard de técnicos' });
   }
 };
 
