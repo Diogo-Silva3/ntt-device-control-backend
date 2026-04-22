@@ -46,6 +46,33 @@ async function fixAgendadoFaltante() {
       console.log(`[MIGRATION] Equipamento ${resultado.serialNumber} atualizado para 'Agendado para Entrega'`);
     }
 
+    // Encontrar 1 equipamento com 'Softwares Instalados' que deveria estar em outro status
+    // e mudar para 'Entregue ao Usuário' se tiver vinculação entregue
+    const equipamentosComSoftwaresInstalados = await prisma.equipamento.findMany({
+      where: {
+        projetoId: projeto.id,
+        status: { not: 'DESCARTADO' },
+        statusProcesso: 'Softwares Instalados',
+        vinculacoes: {
+          some: {
+            statusEntrega: 'ENTREGUE'
+          }
+        }
+      },
+      take: 1
+    });
+
+    if (equipamentosComSoftwaresInstalados.length > 0) {
+      const equipamento = equipamentosComSoftwaresInstalados[0];
+      
+      const resultado = await prisma.equipamento.update({
+        where: { id: equipamento.id },
+        data: { statusProcesso: 'Entregue ao Usuário' }
+      });
+
+      console.log(`[MIGRATION] Equipamento ${resultado.serialNumber} atualizado de 'Softwares Instalados' para 'Entregue ao Usuário'`);
+    }
+
     // Verificar os novos valores
     const agendados = await prisma.equipamento.count({
       where: {
@@ -65,7 +92,7 @@ async function fixAgendadoFaltante() {
 
     const atribuidos = await prisma.vinculacao.count({
       where: {
-        ativa: true,
+        statusEntrega: 'ENTREGUE',
         equipamento: {
           projetoId: projeto.id
         }
