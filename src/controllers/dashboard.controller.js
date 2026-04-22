@@ -203,6 +203,15 @@ const getDashboard = async (req, res) => {
       orderBy: { nome: 'asc' },
     });
 
+    console.log('[DASHBOARD DEBUG]', {
+      agendados,
+      entregues,
+      maquinasAgendadas,
+      maquinasEntregues,
+      totalAtribuido,
+      isAdmin,
+    });
+
     res.json({
       _timestamp: Date.now(), // Força atualização do cache
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
@@ -210,11 +219,11 @@ const getDashboard = async (req, res) => {
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
       techRefresh: { 
         totalProjeto, 
-        maquinasAgendadas: isAdmin ? maquinasAgendadas : agendados,
-        maquinasEntregues: isAdmin ? maquinasEntregues : entregues, 
+        maquinasAgendadas: maquinasAgendadas,
+        maquinasEntregues: maquinasEntregues, 
         maquinasFaltamEntregar,
-        totalAtribuido: totalAtribuido, // Usar vinculações ENTREGUE, não equipamentos
-        _debug: { isAdmin, totalAtribuido, maquinasEntregues }, // Debug temporário
+        totalAtribuido: totalAtribuido,
+        _debug: { isAdmin, agendados, entregues, maquinasAgendadas, maquinasEntregues, totalAtribuido },
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
