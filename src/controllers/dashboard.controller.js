@@ -200,6 +200,9 @@ const getDashboard = async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
+    console.log('[DASHBOARD] totalAtribuido:', totalAtribuido);
+    console.log('[DASHBOARD] maquinasEntregues:', maquinasEntregues);
+
     res.json({
       _timestamp: Date.now(), // Força atualização do cache
       _version: Math.random(), // Força atualização adicional
