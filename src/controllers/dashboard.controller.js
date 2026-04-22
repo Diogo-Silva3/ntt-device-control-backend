@@ -7,11 +7,6 @@ const getDashboard = async (req, res) => {
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
     const tecnicoId = !isAdmin ? req.usuario.id : null;
     
-    // LOG TEMPORÁRIO
-    console.log('[DASHBOARD] Usuario:', req.usuario.nome);
-    console.log('[DASHBOARD] Role:', req.usuario.role);
-    console.log('[DASHBOARD] isAdmin:', isAdmin);
-    
     // Se técnico, usa projetoId do usuário. Se admin, usa do header
     let projetoId = null;
     if (!isAdmin && req.usuario.projetoId) {
@@ -203,15 +198,6 @@ const getDashboard = async (req, res) => {
       orderBy: { nome: 'asc' },
     });
 
-    console.log('[DASHBOARD DEBUG]', {
-      agendados,
-      entregues,
-      maquinasAgendadas,
-      maquinasEntregues,
-      totalAtribuido,
-      isAdmin,
-    });
-
     res.json({
       _timestamp: Date.now(), // Força atualização do cache
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
@@ -223,7 +209,6 @@ const getDashboard = async (req, res) => {
         maquinasEntregues: maquinasEntregues, 
         maquinasFaltamEntregar,
         totalAtribuido: totalAtribuido,
-        _debug: { isAdmin, agendados, entregues, maquinasAgendadas, maquinasEntregues, totalAtribuido },
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
