@@ -143,6 +143,7 @@ const atualizar = async (req, res) => {
     const { senha: _, ...usuarioSemSenha } = usuario;
     res.json(usuarioSemSenha);
   } catch (err) {
+    console.error('Erro ao atualizar usuário:', err);
     res.status(500).json({ error: 'Erro ao atualizar usuário' });
   }
 };
