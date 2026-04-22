@@ -64,7 +64,7 @@ const getDashboard = async (req, res) => {
       totalProjeto,
       maquinasAgendadas,
       maquinasEntregues,
-      disponiveis,
+      faltamEntregar,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
