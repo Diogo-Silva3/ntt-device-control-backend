@@ -64,7 +64,7 @@ const getDashboard = async (req, res) => {
       totalProjeto,
       maquinasAgendadas,
       maquinasEntregues,
-      totalAtribuido,
+      disponiveis,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
@@ -130,13 +130,11 @@ const getDashboard = async (req, res) => {
           statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
-      prisma.vinculacao.count({
+      prisma.equipamento.count({
         where: {
-          statusEntrega: 'ENTREGUE',
-          equipamento: { 
-            ...(projetoId && { projetoId }),
-            empresaId,
-          },
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: 'Softwares Instalados'
         },
       }),
     ]);
@@ -208,7 +206,7 @@ const getDashboard = async (req, res) => {
         maquinasAgendadas: maquinasAgendadas,
         maquinasEntregues: maquinasEntregues, 
         maquinasFaltamEntregar,
-        totalAtribuido: totalAtribuido,
+        totalAtribuido: maquinasEntregues,
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
