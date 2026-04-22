@@ -142,6 +142,13 @@ const getDashboard = async (req, res) => {
           statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
+      prisma.equipamento.count({
+        where: {
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
+        },
+      }),
     ]);
 
     // FALTAM ENTREGAR = equipamentos DISPONÍVEIS (prontos para entregar)
