@@ -139,7 +139,7 @@ const getDashboard = async (req, res) => {
       }),
     ]);
 
-    const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
+    const maquinasFaltamEntregar = disponiveis; // Usar disponiveis (Softwares Instalados) em vez de totalProjeto - maquinasEntregues
 
     // Busca nomes das unidades para porUnidade
     const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
