@@ -200,8 +200,13 @@ const getDashboard = async (req, res) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
-    console.log('[DASHBOARD] totalAtribuido:', totalAtribuido);
-    console.log('[DASHBOARD] maquinasEntregues:', maquinasEntregues);
+    console.log('[DASHBOARD] Variáveis recebidas:');
+    console.log('  totalEquipamentos:', totalEquipamentos);
+    console.log('  emUso:', emUso);
+    console.log('  disponiveis:', disponiveis);
+    console.log('  entregues:', entregues);
+    console.log('  maquinasEntregues:', maquinasEntregues);
+    console.log('  totalAtribuido:', totalAtribuido);
 
     res.json({
       _timestamp: Date.now(), // Força atualização do cache
