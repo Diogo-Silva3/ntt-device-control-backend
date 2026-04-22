@@ -21,6 +21,7 @@ const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const { iniciarCron } = require('./config/cron');
 const { middlewareSincronizacao } = require('./middleware/sincronizacao-dados');
 const { fixTechRefreshDashboard } = require('./migrations/fix-tech-refresh-dashboard');
+const { fixAgendadoFaltante } = require('./migrations/fix-agendado-faltante');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -94,8 +95,9 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   iniciarCron();
-  // Executar migração de correção do dashboard
+  // Executar migrações de correção do dashboard
   fixTechRefreshDashboard().catch(err => console.error('[MIGRATION ERROR]', err));
+  fixAgendadoFaltante().catch(err => console.error('[MIGRATION ERROR]', err));
 });
 
 module.exports = app;
