@@ -72,7 +72,7 @@ const getDashboard = async (req, res) => {
       totalAtribuido,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
+      prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
@@ -135,10 +135,19 @@ const getDashboard = async (req, res) => {
           statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
+      prisma.vinculacao.count({
+        where: {
+          ativa: true,
+          statusEntrega: 'ENTREGUE',
+          equipamento: { 
+            ...(projetoId && { projetoId }),
+            empresaId,
+          },
+        },
+      }),
     ]);
 
-    // FALTAM ENTREGAR = equipamentos DISPONÍVEIS (prontos para entregar)
-    const maquinasFaltamEntregar = disponiveis;
+    const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
 
     // Busca nomes das unidades para porUnidade
     const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
@@ -195,25 +204,8 @@ const getDashboard = async (req, res) => {
       orderBy: { nome: 'asc' },
     });
 
-    // Adicionar headers para evitar cache
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-
-    console.log('[DASHBOARD] Variáveis recebidas:');
-    console.log('  totalEquipamentos:', totalEquipamentos);
-    console.log('  emUso:', emUso);
-    console.log('  disponiveis:', disponiveis);
-    console.log('  agendados:', agendados);
-    console.log('  entregues:', entregues);
-    console.log('  maquinasAgendadas:', maquinasAgendadas);
-    console.log('  maquinasEntregues:', maquinasEntregues);
-    console.log('  totalAtribuido:', totalAtribuido);
-
     res.json({
       _timestamp: Date.now(), // Força atualização do cache
-      _version: Math.random(), // Força atualização adicional
-      _cacheBuster: new Date().toISOString(), // Mais um cache buster
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
       processo: { emPreparacao, aguardandoImagem, comImagem: emPreparacao, agendados, entregues },
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
@@ -222,7 +214,8 @@ const getDashboard = async (req, res) => {
         maquinasAgendadas: isAdmin ? maquinasAgendadas : agendados,
         maquinasEntregues: isAdmin ? maquinasEntregues : entregues, 
         maquinasFaltamEntregar,
-        totalAtribuido: totalAtribuido,
+        totalAtribuido: totalAtribuido, // Usar vinculações ENTREGUE, não equipamentos
+        _debug: { isAdmin, totalAtribuido, maquinasEntregues }, // Debug temporário
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
