@@ -11,7 +11,7 @@ async function restaurar() {
     const backupPath = `/var/backups/sistema/${backupFile}`;
     
     console.log(`Backup: ${backupFile}`);
-    console.log('Data: 21/04/2026 às 03:00\n');
+    console.log('Data: 21/04/2026 às 03:00 (HOJE DE MANHÃ)\n');
     
     // Extrair informações da DATABASE_URL
     const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
