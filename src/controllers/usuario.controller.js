@@ -132,8 +132,8 @@ const atualizar = async (req, res) => {
       include: { unidade: true, projeto: true },
     });
 
-    // Se unidade foi alterada, atualiza solicitações onde este usuário é técnico
-    if (data.unidadeId !== undefined) {
+    // Se unidade foi alterada e o usuário é técnico, atualiza solicitações
+    if (data.unidadeId !== undefined && usuario.role === 'TECNICO') {
       await prisma.solicitacaoAtivo.updateMany({
         where: { tecnicoId: targetId },
         data: { unidadeId: data.unidadeId },
