@@ -72,7 +72,7 @@ const getDashboard = async (req, res) => {
       totalAtribuido,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
+      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
@@ -135,19 +135,17 @@ const getDashboard = async (req, res) => {
           statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
-      prisma.vinculacao.count({
+      prisma.equipamento.count({
         where: {
-          ativa: true,
-          statusEntrega: 'ENTREGUE',
-          equipamento: { 
-            ...(projetoId && { projetoId }),
-            empresaId,
-          },
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
     ]);
 
-    const maquinasFaltamEntregar = Math.max(0, totalProjeto - maquinasEntregues);
+    // FALTAM ENTREGAR = equipamentos DISPONÍVEIS (prontos para entregar)
+    const maquinasFaltamEntregar = disponiveis;
 
     // Busca nomes das unidades para porUnidade
     const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
@@ -204,8 +202,15 @@ const getDashboard = async (req, res) => {
       orderBy: { nome: 'asc' },
     });
 
+    // Adicionar headers para evitar cache
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     res.json({
       _timestamp: Date.now(), // Força atualização do cache
+      _version: Math.random(), // Força atualização adicional
+      _cacheBuster: new Date().toISOString(), // Mais um cache buster
       resumo: { totalEquipamentos, emUso, disponiveis, manutencao, totalUsuarios, totalUnidades },
       processo: { emPreparacao, aguardandoImagem, comImagem: emPreparacao, agendados, entregues },
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
@@ -214,8 +219,7 @@ const getDashboard = async (req, res) => {
         maquinasAgendadas: isAdmin ? maquinasAgendadas : agendados,
         maquinasEntregues: isAdmin ? maquinasEntregues : entregues, 
         maquinasFaltamEntregar,
-        totalAtribuido: totalAtribuido, // Usar vinculações ENTREGUE, não equipamentos
-        _debug: { isAdmin, totalAtribuido, maquinasEntregues }, // Debug temporário
+        totalAtribuido: totalAtribuido,
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
