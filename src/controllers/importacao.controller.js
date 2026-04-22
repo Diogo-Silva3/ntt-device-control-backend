@@ -340,4 +340,222 @@ const previewPlanilha = async (req, res) => {
   }
 };
 
-module.exports = { importarUsuarios, importarEquipamentos, previewPlanilha };
+const parseData = (dataStr) => {
+  if (!dataStr || typeof dataStr !== 'string') return null;
+  const trimmed = dataStr.trim();
+  if (!trimmed) return null;
+  
+  // Tenta formato DD/MM/YYYY
+  const match = trimmed.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (match) {
+    const [, dia, mes, ano] = match;
+    return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+  }
+  
+  // Tenta formato ISO
+  const date = new Date(trimmed);
+  return isNaN(date.getTime()) ? null : date;
+};
+
+const importarSolicitacoes = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'Arquivo nao enviado' });
+    const empresaId = req.usuario.empresaId;
+    const projetoId = req.body.projetoId ? parseInt(req.body.projetoId) : null;
+    const { comHeader, semHeader, temHeader } = lerPlanilha(req.file.buffer);
+    let criadas = 0, atualizadas = 0, erros = [];
+
+    // Buscar técnicos e unidades
+    const tecnicos = await prisma.usuario.findMany({
+      where: { empresaId, role: { in: ['TECNICO', 'ADMIN'] } },
+      select: { id: true, nome: true },
+    });
+    const tecnicoMap = new Map(tecnicos.map(t => [norm(t.nome), t]));
+
+    const unidades = await prisma.unidade.findMany({
+      where: { empresaId },
+      select: { id: true, nome: true },
+    });
+    const unidadeMap = new Map(unidades.map(u => [norm(u.nome), u]));
+
+    const buscarTecnico = (nomeTecnico) => {
+      if (!nomeTecnico) return null;
+      const key = norm(nomeTecnico);
+      if (tecnicoMap.has(key)) return tecnicoMap.get(key);
+      for (const [k, v] of tecnicoMap) {
+        if (k.includes(key) || key.includes(k)) return v;
+      }
+      return null;
+    };
+
+    const buscarUnidade = (nomeUnidade) => {
+      if (!nomeUnidade) return null;
+      const key = norm(nomeUnidade);
+      if (unidadeMap.has(key)) return unidadeMap.get(key);
+      for (const [k, v] of unidadeMap) {
+        if (k.includes(key) || key.includes(k)) return v;
+      }
+      return null;
+    };
+
+    const normalizarLinhas = () => {
+      if (temHeader) {
+        return comHeader.map(row => ({
+          numero: String(row['Número'] || row['numero'] || '').trim(),
+          dataCriacao: parseData(String(row['Criado'] || row['criado'] || '')),
+          descricao: String(row['DESCRIÇÃO'] || row['Descricao'] || row['descricao'] || '').trim(),
+          numeroChamado: String(row['CHAMADO'] || row['Chamado'] || row['chamado'] || '').trim(),
+          atribuidoA: String(row['Atribuído a'] || row['atribuido_a'] || '').trim(),
+          status: String(row['STATUS'] || row['Status'] || row['status'] || 'ABERTO').trim(),
+          dataDefinicao: parseData(String(row['Solicitação da definição'] || row['data_definicao'] || '')),
+          dataDefinicaoConfirmada: parseData(String(row['Data da definição'] || row['data_definicao_confirmada'] || '')),
+          dataSolicitacaoNF: parseData(String(row['Data da solicitação da nota'] || row['data_solicitacao_nf'] || '')),
+          dataEmissaoNF: parseData(String(row['Data da emissão da nota'] || row['data_emissao_nf'] || '')),
+          dataSolicitacaoColeta: parseData(String(row['Data da solicitação de coleta'] || row['data_solicitacao_coleta'] || '')),
+          dataColeta: parseData(String(row['Data da coleta'] || row['data_coleta'] || '')),
+          previsaoChegada: parseData(String(row['Previsão de chegada'] || row['previsao_chegada'] || '')),
+          dataChegada: parseData(String(row['Data de chegada'] || row['data_chegada'] || '')),
+          dataEntrega: parseData(String(row['Data da Entrega'] || row['data_entrega'] || '')),
+          observacoes: String(row['OBS'] || row['Observacoes'] || row['observacoes'] || '').trim(),
+        }));
+      } else {
+        return semHeader
+          .filter(r => r.some(c => String(c).trim() !== ''))
+          .map(row => ({
+            numero: String(row[0] || '').trim(),
+            dataCriacao: parseData(String(row[1] || '')),
+            descricao: String(row[2] || '').trim(),
+            numeroChamado: String(row[3] || '').trim(),
+            atribuidoA: String(row[4] || '').trim(),
+            status: String(row[5] || 'ABERTO').trim(),
+            dataDefinicao: parseData(String(row[6] || '')),
+            dataDefinicaoConfirmada: parseData(String(row[7] || '')),
+            dataSolicitacaoNF: parseData(String(row[8] || '')),
+            dataEmissaoNF: parseData(String(row[9] || '')),
+            dataSolicitacaoColeta: parseData(String(row[10] || '')),
+            dataColeta: parseData(String(row[11] || '')),
+            previsaoChegada: parseData(String(row[12] || '')),
+            dataChegada: parseData(String(row[13] || '')),
+            dataEntrega: parseData(String(row[14] || '')),
+            observacoes: String(row[15] || '').trim(),
+          }));
+      }
+    };
+
+    const linhas = normalizarLinhas().filter(r => r.numeroChamado || r.numero);
+
+    for (const row of linhas) {
+      try {
+        const { numero, numeroChamado, descricao, atribuidoA, status, observacoes, 
+                dataCriacao, dataDefinicao, dataDefinicaoConfirmada, dataSolicitacaoNF,
+                dataEmissaoNF, dataSolicitacaoColeta, dataColeta, previsaoChegada,
+                dataChegada, dataEntrega } = row;
+
+        const chamado = numeroChamado || numero;
+        if (!chamado) continue;
+
+        // Buscar técnico
+        const tecnicoObj = buscarTecnico(atribuidoA);
+        if (!tecnicoObj) {
+          erros.push({ linha: chamado, erro: `Técnico "${atribuidoA}" não encontrado` });
+          continue;
+        }
+
+        // Buscar unidade (usar a unidade do técnico)
+        let unidadeId = tecnicoObj.unidadeId;
+        if (!unidadeId) {
+          const unidades = await prisma.usuario.findUnique({
+            where: { id: tecnicoObj.id },
+            select: { unidadeId: true },
+          });
+          unidadeId = unidades?.unidadeId;
+        }
+
+        // Verificar se já existe
+        const existente = await prisma.solicitacaoAtivo.findUnique({
+          where: { numeroChamado_empresaId: { numeroChamado: chamado, empresaId } },
+        });
+
+        const dataAtualizado = new Date();
+        const diasAtraso = dataChegada && previsaoChegada 
+          ? Math.floor((dataChegada - previsaoChegada) / (1000 * 60 * 60 * 24))
+          : null;
+
+        if (existente) {
+          // Atualizar
+          await prisma.solicitacaoAtivo.update({
+            where: { id: existente.id },
+            data: {
+              descricao: descricao || existente.descricao,
+              status: status || existente.status,
+              estado: status || existente.estado,
+              tecnicoId: tecnicoObj.id,
+              unidadeId: unidadeId || existente.unidadeId,
+              observacoes: observacoes || existente.observacoes,
+              dataCriacao: dataCriacao || existente.dataCriacao,
+              dataDefinicao: dataDefinicao || existente.dataDefinicao,
+              dataDefinicaoConfirmada: dataDefinicaoConfirmada || existente.dataDefinicaoConfirmada,
+              dataSolicitacaoNF: dataSolicitacaoNF || existente.dataSolicitacaoNF,
+              dataEmissaoNF: dataEmissaoNF || existente.dataEmissaoNF,
+              dataSolicitacaoColeta: dataSolicitacaoColeta || existente.dataSolicitacaoColeta,
+              dataColeta: dataColeta || existente.dataColeta,
+              previsaoChegada: previsaoChegada || existente.previsaoChegada,
+              dataChegada: dataChegada || existente.dataChegada,
+              dataEntrega: dataEntrega || existente.dataEntrega,
+              diasAtrasoChegada: diasAtraso || existente.diasAtrasoChegada,
+              ...(projetoId && { projetoId }),
+            },
+          });
+          atualizadas++;
+        } else {
+          // Criar
+          await prisma.solicitacaoAtivo.create({
+            data: {
+              numeroChamado: chamado,
+              descricao: descricao || null,
+              status: status || 'ABERTO',
+              estado: status || 'Aberto',
+              tecnicoId: tecnicoObj.id,
+              unidadeId: unidadeId || null,
+              observacoes: observacoes || null,
+              dataCriacao: dataCriacao || new Date(),
+              dataDefinicao: dataDefinicao || null,
+              dataDefinicaoConfirmada: dataDefinicaoConfirmada || null,
+              dataSolicitacaoNF: dataSolicitacaoNF || null,
+              dataEmissaoNF: dataEmissaoNF || null,
+              dataSolicitacaoColeta: dataSolicitacaoColeta || null,
+              dataColeta: dataColeta || null,
+              previsaoChegada: previsaoChegada || null,
+              dataChegada: dataChegada || null,
+              dataEntrega: dataEntrega || null,
+              diasAtrasoChegada: diasAtraso || null,
+              empresaId,
+              ...(projetoId && { projetoId }),
+              importado: true,
+            },
+          });
+          criadas++;
+        }
+      } catch (e) {
+        erros.push({ linha: row.numeroChamado || row.numero, erro: e.message });
+      }
+    }
+
+    res.json({ message: 'Importacao concluida', criadas, atualizadas, erros: erros.length, detalhesErros: erros.slice(0, 10) });
+
+    registrarLog({
+      usuarioId: req.usuario.id,
+      empresaId: req.usuario.empresaId,
+      projetoId: req.usuario?.projetoIdAtivo || null,
+      acao: 'IMPORTACAO_SOLICITACOES',
+      detalhes: `Planilha de solicitações importada — criadas: ${criadas}, atualizadas: ${atualizadas}, erros: ${erros.length}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao importar solicitações' });
+  }
+};
+
+module.exports = { importarUsuarios, importarEquipamentos, importarSolicitacoes, previewPlanilha };
