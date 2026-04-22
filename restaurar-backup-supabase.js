@@ -7,11 +7,11 @@ async function restaurar() {
   try {
     console.log('=== RESTAURANDO BACKUP DO SUPABASE ===\n');
     
-    const backupFile = 'db_20260421_030001.sql.gz';
+    const backupFile = 'db_20260419_190228.sql.gz';
     const backupPath = `/var/backups/sistema/${backupFile}`;
     
     console.log(`Backup: ${backupFile}`);
-    console.log('Data: 21/04/2026 às 03:00 (HOJE DE MANHÃ)\n');
+    console.log('Data: 19/04/2026 às 19:02 (SÁBADO)\n');
     
     // Extrair informações da DATABASE_URL
     const dbUrl = process.env.DIRECT_URL || process.env.DATABASE_URL;
