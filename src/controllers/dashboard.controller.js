@@ -22,6 +22,10 @@ const getDashboard = async (req, res) => {
     const hoje = new Date();
     const tresDiasAtras = new Date(hoje.getTime() - 3 * 24 * 60 * 60 * 1000);
 
+    // IDs dos projetos
+    const TECH_REFRESH_LAPTOP_2026_ID = 1;
+    const isLaptopProject = projetoId === TECH_REFRESH_LAPTOP_2026_ID;
+
     // Dashboard mostra TODOS os equipamentos da empresa/projeto (não filtra por tecnicoId)
     const whereEq = {
       empresaId,
@@ -68,7 +72,10 @@ const getDashboard = async (req, res) => {
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: 'Softwares Instalados' } }),
+      // Para LAPTOP: conta apenas Softwares Instalados. Para DESKTOP: conta todos não entregues
+      isLaptopProject
+        ? prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: 'Softwares Instalados' } })
+        : prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { not: { in: ['Entregue ao Usuário', 'Em Uso'] } } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
       prisma.unidade.count({ where: { empresaId } }),
@@ -139,7 +146,8 @@ const getDashboard = async (req, res) => {
       }),
     ]);
 
-    const maquinasFaltamEntregar = disponiveis; // Usar disponiveis (Softwares Instalados) em vez de totalProjeto - maquinasEntregues
+    // Para LAPTOP: usa disponiveis. Para DESKTOP: usa totalProjeto - entregues
+    const maquinasFaltamEntregar = isLaptopProject ? disponiveis : (totalProjeto - maquinasEntregues);
 
     // Busca nomes das unidades para porUnidade
     const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
