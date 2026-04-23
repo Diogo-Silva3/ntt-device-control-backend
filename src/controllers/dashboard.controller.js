@@ -68,7 +68,7 @@ const getDashboard = async (req, res) => {
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: 'Softwares Instalados' } } }),
+      prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: 'Softwares Instalados' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
       prisma.unidade.count({ where: { empresaId } }),
