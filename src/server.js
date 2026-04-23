@@ -16,6 +16,7 @@ const clienteRoutes = require('./routes/cliente.routes');
 const projetoRoutes = require('./routes/projeto.routes');
 const auditoriaRoutes = require('./routes/auditoria.routes');
 const solicitacaoRoutes = require('./routes/solicitacao.routes');
+const assistenteIARoutes = require('./routes/assistente-ia.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const { iniciarCron } = require('./config/cron');
@@ -80,6 +81,7 @@ app.use('/api/clientes', clienteRoutes);
 app.use('/api/projetos', projetoRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 app.use('/api/solicitacoes', solicitacaoRoutes);
+app.use('/api/assistente-ia', assistenteIARoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
