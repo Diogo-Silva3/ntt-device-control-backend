@@ -11,34 +11,8 @@ const prisma = require('../config/prisma');
  * Se uma regra for violada, o sistema corrige automaticamente
  */
 const REGRAS_SINCRONIZACAO = [
-  {
-    nome: 'Agendamento-StatusProcesso',
-    descricao: 'Se tem agendamento, statusProcesso deve ser "Agendado para Entrega"',
-    validar: async (eq) => {
-      if (eq.agendamento && eq.statusProcesso !== 'Agendado para Entrega') {
-        return {
-          violado: true,
-          problema: `Equipamento ${eq.serialNumber} tem agendamento mas statusProcesso=${eq.statusProcesso}`,
-          correcao: { statusProcesso: 'Agendado para Entrega' }
-        };
-      }
-      return { violado: false };
-    }
-  },
-  {
-    nome: 'StatusProcesso-Agendamento',
-    descricao: 'Se statusProcesso é "Agendado para Entrega", deve ter agendamento',
-    validar: async (eq) => {
-      if (eq.statusProcesso === 'Agendado para Entrega' && !eq.agendamento) {
-        return {
-          violado: true,
-          problema: `Equipamento ${eq.serialNumber} está agendado mas sem dados de agendamento`,
-          correcao: null // Problema grave - requer investigação manual
-        };
-      }
-      return { violado: false };
-    }
-  },
+  // Regra removida: Agendamento-StatusProcesso (causava reversão automática de dados)
+  // Regra removida: StatusProcesso-Agendamento (causava reversão automática de dados)
   {
     nome: 'DataEntrega-Agendamento',
     descricao: 'dataEntrega deve sincronizar com agendamento.data',

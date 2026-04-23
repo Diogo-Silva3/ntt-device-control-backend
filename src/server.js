@@ -19,7 +19,8 @@ const solicitacaoRoutes = require('./routes/solicitacao.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const { iniciarCron } = require('./config/cron');
-const { middlewareSincronizacao } = require('./middleware/sincronizacao-dados');
+// Middleware de sincronização desativado para evitar alterações automáticas de dados
+// const { middlewareSincronizacao } = require('./middleware/sincronizacao-dados');
 const { fixTechRefreshDashboard } = require('./migrations/fix-tech-refresh-dashboard');
 const { fixAgendadoFaltante } = require('./migrations/fix-agendado-faltante');
 const { restoreH45C9H4 } = require('./migrations/restore-h45c9h4-final');
@@ -62,8 +63,8 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Middleware de sincronização (verifica dados em background)
-app.use(middlewareSincronizacao);
+// Middleware de sincronização desativado
+// app.use(middlewareSincronizacao);
 
 // Rotas
 app.use('/api/auth', authRoutes);
