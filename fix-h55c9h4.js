@@ -1,78 +1,35 @@
 const prisma = require('./src/config/prisma');
 
-async function fix() {
+(async () => {
   try {
-    // Encontrar H55C9H4
+    // Encontrar o equipamento H55C9H4 no projeto TECH REFRESH LAPTOP 2026 (ID 1)
     const equipamento = await prisma.equipamento.findFirst({
       where: {
-        serialNumber: 'H55C9H4'
+        serialNumber: 'H55C9H4',
+        projetoId: 1
       }
     });
 
     if (!equipamento) {
-      console.log('Equipamento H55C9H4 não encontrado');
-      return;
+      console.log('Equipamento H55C9H4 não encontrado no projeto TECH REFRESH LAPTOP 2026');
+      process.exit(1);
     }
 
-    console.log('Equipamento encontrado:', equipamento.serialNumber);
-    console.log('Status atual:', equipamento.statusProcesso);
+    console.log('Equipamento encontrado:', equipamento);
 
-    // Mudar para 'Agendado para Entrega'
-    const resultado = await prisma.equipamento.update({
+    // Atualizar para Agendado para Entrega (voltar de Entregue)
+    const atualizado = await prisma.equipamento.update({
       where: { id: equipamento.id },
-      data: { statusProcesso: 'Agendado para Entrega' }
-    });
-
-    console.log('Equipamento atualizado para:', resultado.statusProcesso);
-
-    // Verificar os novos valores
-    const projeto = await prisma.projeto.findFirst({
-      where: { nome: { contains: 'TECH REFRESH LAPTOP 2026' } }
-    });
-
-    const agendados = await prisma.equipamento.count({
-      where: {
-        projetoId: projeto.id,
-        status: { not: 'DESCARTADO' },
-        statusProcesso: 'Agendado para Entrega'
+      data: {
+        statusProcesso: 'Agendado para Entrega',
+        status: 'DISPONIVEL'
       }
     });
 
-    const entregues = await prisma.equipamento.count({
-      where: {
-        projetoId: projeto.id,
-        status: { not: 'DESCARTADO' },
-        statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] }
-      }
-    });
-
-    const atribuidos = await prisma.equipamento.count({
-      where: {
-        projetoId: projeto.id,
-        status: { not: 'DESCARTADO' },
-        statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] }
-      }
-    });
-
-    const disponiveis = await prisma.equipamento.count({
-      where: {
-        projetoId: projeto.id,
-        status: { not: 'DESCARTADO' },
-        statusProcesso: 'Softwares Instalados'
-      }
-    });
-
-    console.log('\n=== NOVOS VALORES ===');
-    console.log('Agendados:', agendados);
-    console.log('Entregues:', entregues);
-    console.log('Atribuídos:', atribuidos);
-    console.log('Disponíveis:', disponiveis);
-
+    console.log('Equipamento atualizado com sucesso:', atualizado);
+    process.exit(0);
   } catch (err) {
-    console.error(err);
-  } finally {
-    await prisma.$disconnect();
+    console.error('Erro:', err);
+    process.exit(1);
   }
-}
-
-fix();
+})();
