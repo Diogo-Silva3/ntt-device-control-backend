@@ -22,6 +22,7 @@ const { iniciarCron } = require('./config/cron');
 const { middlewareSincronizacao } = require('./middleware/sincronizacao-dados');
 const { fixTechRefreshDashboard } = require('./migrations/fix-tech-refresh-dashboard');
 const { fixAgendadoFaltante } = require('./migrations/fix-agendado-faltante');
+const { restoreH45C9H4 } = require('./migrations/restore-h45c9h4-final');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -98,6 +99,7 @@ app.listen(PORT, () => {
   // Executar migrações de correção do dashboard
   fixTechRefreshDashboard().catch(err => console.error('[MIGRATION ERROR]', err));
   fixAgendadoFaltante().catch(err => console.error('[MIGRATION ERROR]', err));
+  restoreH45C9H4().catch(err => console.error('[MIGRATION ERROR]', err));
 });
 
 module.exports = app;

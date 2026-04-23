@@ -117,17 +117,17 @@ const getDashboard = async (req, res) => {
       }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({
-        where: {
-          ...whereEq,
-          status: { not: 'DESCARTADO' },
-          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
-        },
-      }),
-      prisma.equipamento.count({
         where: { 
           ...whereEq,
           status: { not: 'DESCARTADO' }, 
           statusProcesso: 'Agendado para Entrega'
+        },
+      }),
+      prisma.equipamento.count({
+        where: {
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
         },
       }),
       prisma.equipamento.count({
