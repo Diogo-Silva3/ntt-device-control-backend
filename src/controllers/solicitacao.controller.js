@@ -435,7 +435,7 @@ const dashboard = async (req, res) => {
       'Coleta Solicitada', 'Em Trânsito', 'Aguardando Entrega', 'Entregue',
     ];
 
-    const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, porEstadoRaw, rankingUnidades, porTipoRaw, totalEncerrados] = await Promise.all([
+    const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, porEstadoRaw, rankingUnidades, porTipoRaw, totalEncerrados, porTipoEmAndamento] = await Promise.all([
       prisma.solicitacaoAtivo.count({ where: { empresaId, status: { not: 'ENCERRADO' } } }),
       prisma.solicitacaoAtivo.count({ where: { empresaId, status: 'EM_ANDAMENTO' } }),
       prisma.solicitacaoAtivo.count({
@@ -469,6 +469,11 @@ const dashboard = async (req, res) => {
       prisma.solicitacaoAtivo.count({
         where: { empresaId, status: 'ENCERRADO' },
       }),
+      prisma.solicitacaoAtivo.groupBy({
+        by: ['tipo'],
+        where: { empresaId, status: { not: 'ENCERRADO' } },
+        _count: { id: true },
+      }),
     ]);
 
     // Montar objeto porEstado com todos os estados zerados
@@ -479,15 +484,15 @@ const dashboard = async (req, res) => {
       }
     });
 
-    // Montar objeto porTipo
+    // Montar objeto porTipo com apenas os em andamento
     const porTipo = {};
-    porTipoRaw.forEach(item => {
+    porTipoEmAndamento.forEach(item => {
       if (item.tipo) {
         porTipo[item.tipo] = item._count.id;
       }
     });
 
-    // Total é a soma de todos os tipos
+    // Total é a soma de todos os tipos em andamento
     const totalPorTipo = Object.values(porTipo).reduce((a, b) => a + b, 0);
 
     // Enriquecer ranking com nomes das unidades
