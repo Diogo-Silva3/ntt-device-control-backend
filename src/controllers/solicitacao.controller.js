@@ -10,12 +10,12 @@ const REGEX_CHAMADO = /^(INC|TASK)\d+$/;
  */
 const derivarEstado = (sol) => {
   if (sol.dataEntrega)          return 'Entregue';
-  if (sol.dataChegada)          return 'Aguard.Entrega';
+  if (sol.dataChegada)          return 'Aguardando Entrega';
   if (sol.dataColeta)           return 'Em Trânsito';
   if (sol.dataSolicitacaoColeta) return 'Coleta Solicitada';
   if (sol.dataEmissaoNF)        return 'Aguardando Coleta';
   if (sol.dataSolicitacaoNF)    return 'NF Solicitada';
-  if (sol.dataDefinicao)        return 'Aguard.Definição';
+  if (sol.dataDefinicao)        return 'Aguardando NF';
   return 'Aberto';
 };
 
@@ -401,8 +401,8 @@ const board = async (req, res) => {
     });
 
     const ESTADOS_ORDEM = [
-      'Aberto', 'Aguard.Definição', 'NF Solicitada', 'Aguardando Coleta',
-      'Coleta Solicitada', 'Em Trânsito', 'Aguard.Entrega', 'Entregue',
+      'Aberto', 'Aguardando NF', 'NF Solicitada', 'Aguardando Coleta',
+      'Coleta Solicitada', 'Em Trânsito', 'Aguardando Entrega', 'Entregue',
     ];
 
     const resultado = Object.fromEntries(ESTADOS_ORDEM.map(e => [e, []]));
@@ -431,8 +431,8 @@ const dashboard = async (req, res) => {
     const fimMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0, 23, 59, 59);
 
     const ESTADOS = [
-      'Aberto', 'Aguard.Definição', 'NF Solicitada', 'Aguardando Coleta',
-      'Coleta Solicitada', 'Em Trânsito', 'Aguard.Entrega', 'Entregue',
+      'Aberto', 'Aguardando NF', 'NF Solicitada', 'Aguardando Coleta',
+      'Coleta Solicitada', 'Em Trânsito', 'Aguardando Entrega', 'Entregue',
     ];
 
     const [totalAbertas, totalEmAndamento, totalEncerradasMes, totalComAtraso, porEstadoRaw, rankingUnidades, porTipoRaw, totalEncerrados] = await Promise.all([
