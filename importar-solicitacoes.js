@@ -515,12 +515,12 @@ const solicitacoes = [
 
 const derivarEstado = (sol) => {
   if (sol.dataEntrega)           return 'Entregue';
-  if (sol.dataChegada)           return 'Aguardando Entrega';
+  if (sol.dataChegada)           return 'Aguard.Entrega';
   if (sol.dataColeta)            return 'Em Trânsito';
-  if (sol.dataSolicitacaoColeta) return 'Coleta Solicitada';
+  if (sol.dataSolicitacaoColeta) return 'Aguardando Coleta';
   if (sol.dataEmissaoNF)         return 'Aguardando Coleta';
   if (sol.dataSolicitacaoNF)     return 'NF Solicitada';
-  if (sol.dataDefinicao)         return 'Aguardando NF';
+  if (sol.dataDefinicao)         return 'Aguard.Definição';
   return 'Aberto';
 };
 

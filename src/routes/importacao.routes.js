@@ -1,15 +1,24 @@
-const router = require('express').Router();
+const express = require('express');
+const router = express.Router();
 const multer = require('multer');
-const ctrl = require('../controllers/importacao.controller');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth.middleware');
+const path = require('path');
+const importacaoController = require('../controllers/importacao.controller');
+const { autenticar } = require('../middleware/auth.middleware');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+// Configurar multer para upload temporário
+const upload = multer({
+  dest: path.join(__dirname, '../../uploads/temp'),
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.xlsx' || ext === '.xls') {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas arquivos Excel são permitidos'));
+    }
+  }
+});
 
-router.use(authMiddleware);
-
-router.post('/preview', upload.single('arquivo'), ctrl.previewPlanilha);
-router.post('/usuarios', adminMiddleware, upload.single('arquivo'), ctrl.importarUsuarios);
-router.post('/equipamentos', adminMiddleware, upload.single('arquivo'), ctrl.importarEquipamentos);
-router.post('/solicitacoes', adminMiddleware, upload.single('arquivo'), ctrl.importarSolicitacoes);
+// Importar usuários (colaboradores)
+router.post('/usuarios', autenticar, upload.single('arquivo'), importacaoController.importarUsuarios);
 
 module.exports = router;

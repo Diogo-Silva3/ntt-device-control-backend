@@ -82,7 +82,19 @@ const getDashboard = async (req, res) => {
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Imagem Instalada', 'Softwares Instalados'] } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Novo' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Softwares Instalados' } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
+      prisma.equipamento.count({
+        where: {
+          ...whereEq,
+          status: { not: 'DESCARTADO' },
+          statusProcesso: 'Agendado para Entrega',
+          vinculacoes: {
+            some: {
+              ativa: true,
+              statusEntrega: 'PENDENTE'
+            }
+          }
+        },
+      }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
       prisma.equipamento.groupBy({
         by: ['marca'],
@@ -123,13 +135,7 @@ const getDashboard = async (req, res) => {
         },
       }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      prisma.equipamento.count({
-        where: { 
-          ...whereEq,
-          status: { not: 'DESCARTADO' }, 
-          statusProcesso: 'Agendado para Entrega'
-        },
-      }),
+      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
       prisma.equipamento.count({
         where: {
           ...whereEq,

@@ -9,7 +9,6 @@ const equipamentoRoutes = require('./routes/equipamento.routes');
 const unidadeRoutes = require('./routes/unidade.routes');
 const vinculacaoRoutes = require('./routes/vinculacao.routes');
 const relatorioRoutes = require('./routes/relatorio.routes');
-const importacaoRoutes = require('./routes/importacao.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const chamadoRoutes = require('./routes/chamado.routes');
 const clienteRoutes = require('./routes/cliente.routes');
@@ -17,6 +16,7 @@ const projetoRoutes = require('./routes/projeto.routes');
 const auditoriaRoutes = require('./routes/auditoria.routes');
 const solicitacaoRoutes = require('./routes/solicitacao.routes');
 const assistenteIARoutes = require('./routes/assistente-ia.routes');
+const importacaoRoutes = require('./routes/importacao.routes');
 
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const { iniciarCron } = require('./config/cron');
@@ -74,7 +74,6 @@ app.use('/api/equipamentos', equipamentoRoutes);
 app.use('/api/unidades', unidadeRoutes);
 app.use('/api/vinculacoes', vinculacaoRoutes);
 app.use('/api/relatorios', relatorioRoutes);
-app.use('/api/importacao', importacaoRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/chamados', chamadoRoutes);
 app.use('/api/clientes', clienteRoutes);
@@ -82,6 +81,7 @@ app.use('/api/projetos', projetoRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 app.use('/api/solicitacoes', solicitacaoRoutes);
 app.use('/api/assistente-ia', assistenteIARoutes);
+app.use('/api/importacao', importacaoRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -99,10 +99,10 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   iniciarCron();
-  // Executar migrações de correção do dashboard
-  fixTechRefreshDashboard().catch(err => console.error('[MIGRATION ERROR]', err));
-  fixAgendadoFaltante().catch(err => console.error('[MIGRATION ERROR]', err));
-  restoreH45C9H4().catch(err => console.error('[MIGRATION ERROR]', err));
+  // MIGRAÇÕES DESATIVADAS - não devem alterar equipamentos automaticamente
+  // fixTechRefreshDashboard().catch(err => console.error('[MIGRATION ERROR]', err));
+  // fixAgendadoFaltante().catch(err => console.error('[MIGRATION ERROR]', err));
+  // restoreH45C9H4().catch(err => console.error('[MIGRATION ERROR]', err));
 });
 
 module.exports = app;

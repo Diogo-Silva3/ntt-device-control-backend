@@ -1,6 +1,6 @@
 const express = require('express');
 const { chat } = require('../controllers/assistente-ia.controller');
-const { autenticar } = require('../middleware/autenticacao');
+const { authMiddleware } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -10,6 +10,6 @@ const router = express.Router();
  * Body: { mensagem: string }
  * Response: { tipo, resposta, timestamp }
  */
-router.post('/chat', autenticar, chat);
+router.post('/chat', authMiddleware, chat);
 
 module.exports = router;

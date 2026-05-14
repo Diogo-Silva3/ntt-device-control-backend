@@ -57,46 +57,55 @@ const criar = async (req, res) => {
       softwaresDe, softwaresPara, dataAgendamento,
     } = req.body;
 
-    // NOVO: Rejeitar se tentar agendar via Atribuições
-    if (dataAgendamento) {
-      return res.status(400).json({ 
-        error: 'Agendamento deve ser feito na etapa de PREPARAÇÃO, não em Atribuições' 
-      });
-    }
-
-    if (!tecnicoId) {
-      return res.status(400).json({ error: 'Técnico responsável é obrigatório' });
+    // Técnico é obrigatório apenas se NÃO estiver agendando
+    if (!tecnicoId && !dataAgendamento) {
+      return res.status(400).json({ error: 'Técnico responsável é obrigatório ou forneça uma data de agendamento' });
     }
 
     const atribuicaoAtiva = await prisma.vinculacao.findFirst({
       where: { equipamentoId: parseInt(equipamentoId), ativa: true },
     });
+    
+    let vinculacao;
+    
     if (atribuicaoAtiva) {
-      return res.status(400).json({ error: 'Equipamento já está atribuído a outro colaborador' });
+      // Se já existe atribuição ativa, atualiza com o agendamento
+      vinculacao = await prisma.vinculacao.update({
+        where: { id: atribuicaoAtiva.id },
+        data: {
+          dataAgendamento: dataAgendamento || null,
+          statusEntrega: dataAgendamento ? 'PENDENTE' : atribuicaoAtiva.statusEntrega,
+        },
+        include: includeCompleto,
+      });
+    } else {
+      // Se não existe, cria nova
+      vinculacao = await prisma.vinculacao.create({
+        data: {
+          usuarioId: parseInt(usuarioId),
+          equipamentoId: parseInt(equipamentoId),
+          tecnicoId: tecnicoId ? parseInt(tecnicoId) : null,
+          observacao,
+          numeroChamado,
+          tipoOperacao: tipoOperacao || 'Máquina nova e usuário novo',
+          softwaresDe,
+          softwaresPara,
+          dataAgendamento: dataAgendamento || null,
+          statusEntrega: dataAgendamento ? 'PENDENTE' : 'PENDENTE',
+        },
+        include: includeCompleto,
+      });
     }
 
-    const vinculacao = await prisma.vinculacao.create({
-      data: {
-        usuarioId: parseInt(usuarioId),
-        equipamentoId: parseInt(equipamentoId),
-        tecnicoId: parseInt(tecnicoId),
-        observacao,
-        numeroChamado,
-        tipoOperacao: tipoOperacao || 'Máquina nova e usuário novo',
-        softwaresDe,
-        softwaresPara,
-        dataAgendamento: null, // NUNCA permite agendamento aqui
-        statusEntrega: 'PENDENTE',
-      },
-      include: includeCompleto,
-    });
+    // Se tem agendamento, muda statusProcesso para "Agendado para Entrega"
+    const equipamentoUpdate = {
+      status: 'EM_USO',
+      ...(dataAgendamento && { statusProcesso: 'Agendado para Entrega' }),
+    };
 
     await prisma.equipamento.update({
       where: { id: parseInt(equipamentoId) },
-      data: {
-        status: 'EM_USO',
-        // NUNCA muda statusProcesso aqui - deve ser feito na PREPARAÇÃO
-      },
+      data: equipamentoUpdate,
     });
 
     await prisma.historico.create({

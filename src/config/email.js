@@ -1,11 +1,11 @@
 const { Resend } = require('resend');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const FROM = process.env.EMAIL_FROM || 'Tech Refresh <noreply@tech-refresh.cloud>';
 const LOGO_URL = 'https://tech-refresh.cloud/Logo.png';
 
 const enviarEmail = async ({ para, assunto, html }) => {
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.RESEND_API_KEY || !resend) {
     console.warn('[EMAIL] RESEND_API_KEY não configurado.');
     return;
   }

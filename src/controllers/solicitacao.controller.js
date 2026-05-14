@@ -10,12 +10,12 @@ const REGEX_CHAMADO = /^(INC|TASK)\d+$/;
  */
 const derivarEstado = (sol) => {
   if (sol.dataEntrega)          return 'Entregue';
-  if (sol.dataChegada)          return 'Aguardando Entrega';
+  if (sol.dataChegada)          return 'Aguard.Entrega';
   if (sol.dataColeta)           return 'Em Trânsito';
-  if (sol.dataSolicitacaoColeta) return 'Coleta Solicitada';
+  if (sol.dataSolicitacaoColeta) return 'Aguardando Coleta';
   if (sol.dataEmissaoNF)        return 'Aguardando Coleta';
   if (sol.dataSolicitacaoNF)    return 'NF Solicitada';
-  if (sol.dataDefinicao)        return 'Aguardando NF';
+  if (sol.dataDefinicao)        return 'Aguard.Definição';
   return 'Aberto';
 };
 
@@ -56,10 +56,14 @@ const listar = async (req, res) => {
       ]
     } : {};
 
+    // Usar o estado diretamente (sem conversão)
+    const estadoFiltro = estado || null;
+
     const where = {
       empresaId,
-      ...(status && { status }),
-      ...(estado && { estado }),
+      // Se não houver filtro de status, excluir encerrados por padrão
+      ...(status ? { status } : { status: { not: 'ENCERRADO' } }),
+      ...(estadoFiltro && { estado: estadoFiltro }),
       ...(tipo && { tipo }),
       ...(tecnicoId && { tecnicoId: parseInt(tecnicoId) }),
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
@@ -401,8 +405,8 @@ const board = async (req, res) => {
     });
 
     const ESTADOS_ORDEM = [
-      'Aberto', 'Aguardando NF', 'NF Solicitada', 'Aguardando Coleta',
-      'Coleta Solicitada', 'Em Trânsito', 'Aguardando Entrega', 'Entregue',
+      'Aberto', 'Aguard.Definição', 'NF Solicitada', 'Aguardando Coleta',
+      'Em Trânsito', 'Aguard.Entrega', 'Entregue',
     ];
 
     const resultado = Object.fromEntries(ESTADOS_ORDEM.map(e => [e, []]));

@@ -49,14 +49,12 @@ const listar = async (req, res) => {
     const empresaId = req.usuario.empresaId;
     const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
     const isAdmin = req.usuario.role === 'ADMIN' || req.usuario.role === 'SUPERADMIN';
-    const tecnicoId = !isAdmin ? req.usuario.id : null;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const where = {
       empresaId,
       ...(projetoId && { projetoId }),
-      // Se for técnico, mostrar apenas seus equipamentos
-      ...(tecnicoId && { tecnicoId }),
+      // Técnicos veem todos os equipamentos do projeto selecionado (não filtra por tecnicoId)
       // Esconde descartados por padrão, a menos que filtro explícito
       ...(status ? { status } : { status: { not: 'DESCARTADO' } }),
       ...(statusProcesso && {

@@ -63,12 +63,12 @@ function derivarTipo(descricao) {
 
 function derivarEstado(d) {
   if (d.entrega) return 'Entregue';
-  if (d.chegada) return 'Aguardando Entrega';
+  if (d.chegada) return 'Aguard.Entrega';
   if (d.coleta) return 'Em Trânsito';
-  if (d.solColeta) return 'Coleta Solicitada';
+  if (d.solColeta) return 'Aguardando Coleta';
   if (d.emNF) return 'Aguardando Coleta';
   if (d.solNF) return 'NF Solicitada';
-  if (d.defData) return 'Aguardando NF';
+  if (d.defData) return 'Aguard.Definição';
   return 'Aberto';
 }
 
