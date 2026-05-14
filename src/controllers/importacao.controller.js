@@ -376,11 +376,18 @@ exports.importarUsuarios = async (req, res) => {
 
     // Ler arquivo Excel
     const workbook = XLSX.readFile(req.file.path);
-    const worksheet = workbook.Sheets['Ativos'];
+    
+    // Tentar encontrar a primeira planilha com dados
+    let worksheet = workbook.Sheets['Ativos'];
     
     if (!worksheet) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({ error: 'Planilha "Ativos" não encontrada' });
+      // Se não encontrar "Ativos", usar a primeira planilha disponível
+      const sheetNames = workbook.SheetNames;
+      if (sheetNames.length === 0) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ error: 'Arquivo Excel vazio' });
+      }
+      worksheet = workbook.Sheets[sheetNames[0]];
     }
 
     const dados = XLSX.utils.sheet_to_json(worksheet);
@@ -425,6 +432,11 @@ exports.importarUsuarios = async (req, res) => {
 
         // Pular DEMITIDO
         if (status === 'DEMITIDO') {
+          resultado.detalhes.push({
+            nome,
+            email,
+            motivo: 'Status DEMITIDO (pulado)'
+          });
           continue;
         }
 
@@ -473,7 +485,11 @@ exports.importarUsuarios = async (req, res) => {
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    res.status(500).json({ error: 'Erro ao importar usuários' });
+    res.status(500).json({ 
+      error: 'Erro ao importar usuários',
+      detalhes: erro.message,
+      stack: process.env.NODE_ENV === 'development' ? erro.stack : undefined
+    });
   }
 };
 
