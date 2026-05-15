@@ -132,6 +132,18 @@ const buscarPorId = async (req, res) => {
       agendamento: equipamento.agendamento ? JSON.parse(equipamento.agendamento) : null,
     };
 
+    // Enriquecer agendamento com nome do colaborador
+    if (result.agendamento && result.agendamento.colaboradorId) {
+      const colaborador = await prisma.usuario.findUnique({
+        where: { id: parseInt(result.agendamento.colaboradorId) },
+        select: { id: true, nome: true, email: true }
+      });
+      if (colaborador) {
+        result.agendamento.colaboradorNome = colaborador.nome;
+        result.agendamento.colaboradorEmail = colaborador.email;
+      }
+    }
+
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -275,9 +287,25 @@ const atualizar = async (req, res) => {
       });
     }
 
+    // Enriquecer agendamento com nome do colaborador
+    let agendamentoEnriquecido = null;
+    if (equipamento.agendamento) {
+      agendamentoEnriquecido = JSON.parse(equipamento.agendamento);
+      if (agendamentoEnriquecido.colaboradorId) {
+        const colaborador = await prisma.usuario.findUnique({
+          where: { id: parseInt(agendamentoEnriquecido.colaboradorId) },
+          select: { id: true, nome: true, email: true }
+        });
+        if (colaborador) {
+          agendamentoEnriquecido.colaboradorNome = colaborador.nome;
+          agendamentoEnriquecido.colaboradorEmail = colaborador.email;
+        }
+      }
+    }
+
     res.json({
       ...equipamento,
-      agendamento: equipamento.agendamento ? JSON.parse(equipamento.agendamento) : null,
+      agendamento: agendamentoEnriquecido,
       checklistPreparacao: equipamento.checklistPreparacao ? JSON.parse(equipamento.checklistPreparacao) : null,
       checklistEntrega: equipamento.checklistEntrega ? JSON.parse(equipamento.checklistEntrega) : null,
       historicoEtapas: equipamento.historicoEtapas ? JSON.parse(equipamento.historicoEtapas) : [],
@@ -394,9 +422,25 @@ const atualizarAgendamento = async (req, res) => {
       include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
     });
 
+    // Enriquecer agendamento com nome do colaborador
+    let agendamentoEnriquecido = null;
+    if (equipamento.agendamento) {
+      agendamentoEnriquecido = JSON.parse(equipamento.agendamento);
+      if (agendamentoEnriquecido.colaboradorId) {
+        const colaborador = await prisma.usuario.findUnique({
+          where: { id: parseInt(agendamentoEnriquecido.colaboradorId) },
+          select: { id: true, nome: true, email: true }
+        });
+        if (colaborador) {
+          agendamentoEnriquecido.colaboradorNome = colaborador.nome;
+          agendamentoEnriquecido.colaboradorEmail = colaborador.email;
+        }
+      }
+    }
+
     res.json({
       ...equipamento,
-      agendamento: equipamento.agendamento ? JSON.parse(equipamento.agendamento) : null,
+      agendamento: agendamentoEnriquecido,
     });
 
     registrarLog({
