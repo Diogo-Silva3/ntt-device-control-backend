@@ -422,6 +422,48 @@ const atualizarAgendamento = async (req, res) => {
       include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
     });
 
+    // Se tem colaboradorId no agendamento, atualizar/criar vinculação
+    if (agendamento.colaboradorId) {
+      const novoColaboradorId = parseInt(agendamento.colaboradorId);
+      
+      // Buscar vinculação ativa existente
+      const vinculacaoExistente = await prisma.vinculacao.findFirst({
+        where: { equipamentoId: id, ativa: true }
+      });
+
+      if (vinculacaoExistente) {
+        // Se o colaborador mudou, desativar a antiga e criar uma nova
+        if (vinculacaoExistente.usuarioId !== novoColaboradorId) {
+          await prisma.vinculacao.update({
+            where: { id: vinculacaoExistente.id },
+            data: { ativa: false, dataFim: new Date() }
+          });
+
+          // Criar nova vinculação
+          await prisma.vinculacao.create({
+            data: {
+              usuarioId: novoColaboradorId,
+              equipamentoId: id,
+              projetoId: equipamento.projetoId,
+              ativa: true,
+              statusEntrega: 'PENDENTE'
+            }
+          });
+        }
+      } else {
+        // Se não tem vinculação ativa, criar uma
+        await prisma.vinculacao.create({
+          data: {
+            usuarioId: novoColaboradorId,
+            equipamentoId: id,
+            projetoId: equipamento.projetoId,
+            ativa: true,
+            statusEntrega: 'PENDENTE'
+          }
+        });
+      }
+    }
+
     // Enriquecer agendamento com nome do colaborador
     let agendamentoEnriquecido = null;
     if (equipamento.agendamento) {
@@ -448,7 +490,7 @@ const atualizarAgendamento = async (req, res) => {
       empresaId: req.usuario.empresaId,
       projetoId: req.usuario?.projetoIdAtivo || null,
       acao: 'AGENDAMENTO_CRIADO',
-      detalhes: `Agendamento criado para equipamento #${id}${agendamento.data ? ` — data: ${agendamento.data}` : ''}`,
+      detalhes: `Agendamento criado para equipamento #${id}${agendamento.data ? ` — data: ${agendamento.data}` : ''}${agendamento.colaboradorId ? ` — colaborador: ${agendamento.colaboradorId}` : ''}`,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });
