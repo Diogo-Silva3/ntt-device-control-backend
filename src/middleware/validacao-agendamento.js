@@ -16,25 +16,19 @@ const validarAgendamento = async (req, res, next) => {
       });
     }
     
-    // Se statusProcesso é 'Agendado para Entrega', deve ter agendamento
-    if (statusProcesso === 'Agendado para Entrega' && !agendamento) {
-      return res.status(400).json({
-        error: 'Erro de validação: statusProcesso "Agendado para Entrega" requer agendamento'
-      });
-    }
-    
-    // NOVO: Se tem agendamento, DEVE ter colaboradorId
-    if (agendamento && !agendamento.colaboradorId) {
-      return res.status(400).json({
-        error: 'Erro de validação: Agendamento requer um colaborador selecionado'
-      });
-    }
-    
-    // NOVO: Se tem agendamento, DEVE ter data
-    if (agendamento && !agendamento.data) {
-      return res.status(400).json({
-        error: 'Erro de validação: Agendamento requer uma data'
-      });
+    // Se tem agendamento, DEVE ter colaboradorId e data
+    if (agendamento) {
+      if (!agendamento.colaboradorId) {
+        return res.status(400).json({
+          error: 'Erro de validação: Agendamento requer um colaborador selecionado'
+        });
+      }
+      
+      if (!agendamento.data) {
+        return res.status(400).json({
+          error: 'Erro de validação: Agendamento requer uma data'
+        });
+      }
     }
     
     next();
