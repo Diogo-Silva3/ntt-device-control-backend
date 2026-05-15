@@ -15,7 +15,7 @@ const listar = async (req, res) => {
     const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
 
     const where = {
-      ...(ativa !== undefined && { ativa: ativa === 'true' }),
+      ativa: ativa !== undefined ? (ativa === 'true') : true, // Por padrão, mostra apenas ativas
       ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
       ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
       ...(statusEntrega && { statusEntrega }),
