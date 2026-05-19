@@ -290,13 +290,31 @@ const marcarNaoCompareceu = async (req, res) => {
 const marcarEntregue = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { assinatura } = req.body;
+    const { assinatura, checklistDevolucao } = req.body;
+
+    // Validar que a vinculação existe
+    const vinculacao = await prisma.vinculacao.findUnique({
+      where: { id },
+      include: { equipamento: true, usuario: true }
+    });
+
+    if (!vinculacao) {
+      return res.status(404).json({ error: 'Vinculação não encontrada' });
+    }
+
+    // Validar que está em status PENDENTE
+    if (vinculacao.statusEntrega !== 'PENDENTE') {
+      return res.status(400).json({ error: 'Apenas vinculações pendentes podem ser marcadas como entregues' });
+    }
+
+    // Atualizar vinculação
     const atualizada = await prisma.vinculacao.update({
       where: { id },
       data: {
         statusEntrega: 'ENTREGUE',
         dataFim: new Date(),
         ...(assinatura && { assinatura }),
+        ...(checklistDevolucao && { checklistDevolucao: JSON.stringify(checklistDevolucao) }),
       },
       include: includeCompleto,
     });
@@ -335,6 +353,7 @@ const marcarEntregue = async (req, res) => {
       userAgent: req.headers['user-agent'],
     });
   } catch (err) {
+    console.error('Erro ao marcar como entregue:', err);
     res.status(500).json({ error: 'Erro ao marcar como entregue' });
   }
 };
