@@ -9,6 +9,11 @@ const validarAgendamento = async (req, res, next) => {
   try {
     const { agendamento, statusProcesso } = req.body;
     
+    // Se está mudando para 'Entregue ao Usuário', não validar agendamento
+    if (statusProcesso === 'Entregue ao Usuário') {
+      return next();
+    }
+    
     // Se está agendando, validar que statusProcesso é 'Agendado para Entrega'
     if (agendamento && statusProcesso !== 'Agendado para Entrega') {
       return res.status(400).json({
