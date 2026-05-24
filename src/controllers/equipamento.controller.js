@@ -200,13 +200,45 @@ const atualizar = async (req, res) => {
     const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa, agendamento } = req.body;
     const id = parseInt(req.params.id);
 
+    console.log('📝 Atualizando equipamento', id);
+    console.log('  statusProcesso:', statusProcesso);
+    console.log('  agendamento:', agendamento);
+
     // Busca estado atual para comparar mudanças relevantes
     const anterior = await prisma.equipamento.findUnique({
       where: { id },
-      select: { statusProcesso: true, historicoEtapas: true, tecnicoId: true, tecnico: { select: { nome: true } } },
+      select: { statusProcesso: true, historicoEtapas: true, tecnicoId: true, tecnico: { select: { nome: true } }, agendamento: true },
     });
 
-    // Se mudou statusProcesso, registra no histórico de etapas
+    // Verificar se precisa criar vinculação (quando marca como entregue com colaborador)
+    let devecriarVinculacao = false;
+    let colaboradorIdVinculacao = null;
+    
+    // Verificar agendamento que vem do request
+    if (statusProcesso === 'Entregue ao Usuário' && agendamento?.colaboradorId) {
+      devecriarVinculacao = true;
+      colaboradorIdVinculacao = parseInt(agendamento.colaboradorId);
+      console.log('✓ Será criada vinculação para colaborador:', colaboradorIdVinculacao);
+    }
+    // Se não tem agendamento no request, verificar se tem no banco anterior
+    else if (statusProcesso === 'Entregue ao Usuário' && anterior?.agendamento) {
+      try {
+        const agendAnterior = JSON.parse(anterior.agendamento);
+        if (agendAnterior?.colaboradorId) {
+          devecriarVinculacao = true;
+          colaboradorIdVinculacao = parseInt(agendAnterior.colaboradorId);
+          console.log('✓ Será criada vinculação para colaborador (do banco):', colaboradorIdVinculacao);
+        }
+      } catch (e) {
+        console.log('⚠️ Não conseguiu parsear agendamento anterior');
+      }
+    }
+
+    // Se voltou de "Entregue ao Usuário" para outro status, desativar vinculações
+    let devedesativarVinculacao = false;
+    let deveLimparAgendamentoEVinculacoes = false;
+
+    // Se mudou statusProcesso, registra no histórico de etapas E verifica se precisa desativar vinculação
     if (statusProcesso !== undefined && anterior && anterior.statusProcesso !== statusProcesso) {
       let etapasLog = [];
       try { etapasLog = anterior.historicoEtapas ? JSON.parse(anterior.historicoEtapas) : []; } catch { etapasLog = []; }
@@ -230,6 +262,22 @@ const atualizar = async (req, res) => {
           descricao: `Etapa avançada: ${anterior.statusProcesso} → ${statusProcesso}${comentarioEtapa ? ` | ${comentarioEtapa}` : ''}`,
         },
       });
+
+      // Se saiu de "Entregue ao Usuário" (avançou ou voltou), desativar vinculações ENTREGUE
+      if (anterior.statusProcesso === 'Entregue ao Usuário' && statusProcesso !== 'Entregue ao Usuário') {
+        console.log('⚠️ Saiu de "Entregue ao Usuário" (de', anterior.statusProcesso, 'para', statusProcesso, '), vai desativar vinculações ENTREGUE');
+        devedesativarVinculacao = true;
+      }
+      
+      // Se voltou para um status anterior a "Agendado para Entrega", desativar vinculações e limpar agendamento
+      const ETAPAS_ORDEM = ['Novo', 'Imagem Instalada', 'Softwares Instalados', 'Asset Registrado', 'Agendado para Entrega', 'Entregue ao Usuário'];
+      const idxAnterior = ETAPAS_ORDEM.indexOf(anterior.statusProcesso);
+      const idxNovo = ETAPAS_ORDEM.indexOf(statusProcesso);
+      
+      if (idxNovo < idxAnterior && idxNovo < ETAPAS_ORDEM.indexOf('Agendado para Entrega')) {
+        console.log('⚠️ Voltou para etapa anterior a "Agendado para Entrega", vai desativar vinculações e limpar agendamento');
+        deveLimparAgendamentoEVinculacoes = true;
+      }
     }
 
     // Se mudou unidadeId, registra HistoricoLocalizacao dentro de uma transação
@@ -250,7 +298,13 @@ const atualizar = async (req, res) => {
             ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
             ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
             ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
-            ...(agendamento && { agendamento: JSON.stringify(agendamento), ...(agendamento.data && { dataEntrega: new Date(agendamento.data) }) }),
+            ...(deveLimparAgendamentoEVinculacoes
+              ? { agendamento: null, dataEntrega: null }
+              : (agendamento !== undefined && {
+                  agendamento: agendamento ? JSON.stringify(agendamento) : null,
+                  ...(agendamento?.data ? { dataEntrega: new Date(agendamento.data) } : { dataEntrega: null })
+                })
+            ),
             unidadeId: novaUnidadeId,
             tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
           },
@@ -268,29 +322,150 @@ const atualizar = async (req, res) => {
           });
         }
 
+        // Criar vinculação se necessário
+        if (devecriarVinculacao) {
+          // Desativar TODAS as vinculações ativas (PENDENTE e ENTREGUE)
+          await tx.vinculacao.updateMany({
+            where: { equipamentoId: id, ativa: true },
+            data: { ativa: false, dataFim: new Date() }
+          });
+          
+          await tx.vinculacao.create({
+            data: {
+              equipamentoId: id,
+              usuarioId: colaboradorIdVinculacao,
+              tecnicoId: req.usuario.id,
+              statusEntrega: 'ENTREGUE',
+              dataInicio: new Date(),
+              ativa: true,
+            }
+          });
+          console.log('✓ Vinculação ENTREGUE criada na transação para equipamento', id);
+        }
+
+        // Desativar vinculação ENTREGUE se voltou de "Entregue ao Usuário"
+        if (devedesativarVinculacao) {
+          await tx.vinculacao.updateMany({
+            where: { equipamentoId: id, ativa: true, statusEntrega: 'ENTREGUE' },
+            data: { ativa: false, dataFim: new Date() }
+          });
+          console.log('✓ Vinculação ENTREGUE desativada na transação para equipamento', id);
+
+          // Reativar vinculação PENDENTE se existir
+          await tx.vinculacao.updateMany({
+            where: { equipamentoId: id, ativa: false, statusEntrega: 'PENDENTE', dataFim: null },
+            data: { ativa: true }
+          });
+          console.log('✓ Vinculação PENDENTE reativada na transação para equipamento', id);
+        }
+
+        // Se deve desativar todas as vinculações e limpar agendamento (voltou para antes de Agendado para Entrega)
+        if (deveLimparAgendamentoEVinculacoes) {
+          await tx.vinculacao.updateMany({
+            where: { equipamentoId: id, ativa: true },
+            data: { ativa: false, dataFim: new Date() }
+          });
+          console.log('✓ Todas as vinculações ativas desativadas na transação para equipamento', id);
+        }
+
         return [eq];
       });
     } else {
       equipamento = await prisma.equipamento.update({
         where: { id },
         data: {
-          tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
-          ...(statusProcesso !== undefined && { statusProcesso }),
-          // Sincroniza status físico com statusProcesso automaticamente
-          ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
-          ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
-          ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
-          ...(agendamento && { agendamento: JSON.stringify(agendamento), ...(agendamento.data && { dataEntrega: new Date(agendamento.data) }) }),
-          tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
+        tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
+        ...(statusProcesso !== undefined && { statusProcesso }),
+        // Sincroniza status físico com statusProcesso automaticamente
+        ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
+        ...(dataEntrega !== undefined && { dataEntrega: dataEntrega ? new Date(dataEntrega) : null }),
+        ...(dataGarantia !== undefined && { dataGarantia: dataGarantia ? new Date(dataGarantia) : null }),
+        ...(deveLimparAgendamentoEVinculacoes
+          ? { agendamento: null, dataEntrega: null }
+          : (agendamento !== undefined && {
+              agendamento: agendamento ? JSON.stringify(agendamento) : null,
+              ...(agendamento?.data ? { dataEntrega: new Date(agendamento.data) } : { dataEntrega: null })
+            })
+        ),
+        tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
         },
         include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
       });
+    }
+
+    // Criar vinculação se necessário (fora da transação, para o caso sem unidadeId)
+    console.log('🔗 Verificando se deve criar vinculação:');
+    console.log('  devecriarVinculacao:', devecriarVinculacao);
+    console.log('  colaboradorIdVinculacao:', colaboradorIdVinculacao);
+    
+    if (devecriarVinculacao && colaboradorIdVinculacao) {
+      try {
+        console.log('🔄 Desativando todas as vinculações ativas anteriores...');
+        await prisma.vinculacao.updateMany({
+          where: { equipamentoId: id, ativa: true },
+          data: { ativa: false, dataFim: new Date() }
+        });
+        
+        console.log('➕ Criando nova vinculação ENTREGUE...');
+        const novaVinc = await prisma.vinculacao.create({
+          data: {
+            equipamentoId: id,
+            usuarioId: colaboradorIdVinculacao,
+            tecnicoId: req.usuario.id,
+            statusEntrega: 'ENTREGUE',
+            dataInicio: new Date(),
+            ativa: true,
+          }
+        });
+        console.log('✓ Vinculação ENTREGUE criada com sucesso:', novaVinc.id);
+      } catch (err) {
+        console.error('❌ Erro ao criar vinculação:', err.message);
+      }
+    } else {
+      console.log('⚠️ Não vai criar vinculação');
+    }
+
+    // Desativar vinculação ENTREGUE se voltou de "Entregue ao Usuário"
+    if (devedesativarVinculacao) {
+      try {
+        console.log('🔄 Desativando vinculações ENTREGUE ativas...');
+        const desativadas = await prisma.vinculacao.updateMany({
+          where: { equipamentoId: id, ativa: true, statusEntrega: 'ENTREGUE' },
+          data: { ativa: false, dataFim: new Date() }
+        });
+        console.log('✓ Vinculações ENTREGUE desativadas:', desativadas.count);
+
+        // Reativar vinculação PENDENTE se existir
+        console.log('🔄 Reativando vinculação PENDENTE se existir...');
+        const reativada = await prisma.vinculacao.updateMany({
+          where: { equipamentoId: id, ativa: false, statusEntrega: 'PENDENTE', dataFim: null },
+          data: { ativa: true }
+        });
+        console.log('✓ Vinculações PENDENTE reativadas:', reativada.count);
+      } catch (err) {
+        console.error('❌ Erro ao desativar/reativar vinculação:', err.message);
+      }
+    }
+
+    // Se deve desativar todas as vinculações e limpar agendamento (voltou para antes de Agendado para Entrega)
+    if (deveLimparAgendamentoEVinculacoes) {
+      try {
+        console.log('🔄 Desativando todas as vinculações ativas...');
+        const desativadas = await prisma.vinculacao.updateMany({
+          where: { equipamentoId: id, ativa: true },
+          data: { ativa: false, dataFim: new Date() }
+        });
+        console.log('✓ Vinculações desativadas:', desativadas.count);
+      } catch (err) {
+        console.error('❌ Erro ao desativar vinculações:', err.message);
+      }
     }
 
     // Enriquecer agendamento com nome do colaborador
     let agendamentoEnriquecido = null;
     if (equipamento.agendamento) {
       agendamentoEnriquecido = JSON.parse(equipamento.agendamento);
+      console.log('📋 Agendamento encontrado:', agendamentoEnriquecido);
       if (agendamentoEnriquecido.colaboradorId) {
         const colaborador = await prisma.usuario.findUnique({
           where: { id: parseInt(agendamentoEnriquecido.colaboradorId) },
@@ -299,9 +474,19 @@ const atualizar = async (req, res) => {
         if (colaborador) {
           agendamentoEnriquecido.colaboradorNome = colaborador.nome;
           agendamentoEnriquecido.colaboradorEmail = colaborador.email;
+          console.log('✓ Colaborador encontrado:', colaborador.nome);
         }
       }
+    } else {
+      console.log('⚠️ Nenhum agendamento encontrado no equipamento');
     }
+
+    // Se mudou para "Entregue ao Usuário" e tem colaborador no agendamento, criar vinculação
+    console.log('🔍 Verificando condições para criar vinculação:');
+    console.log('  - statusProcesso:', statusProcesso);
+    console.log('  - anterior.statusProcesso:', anterior?.statusProcesso);
+    console.log('  - agendamentoEnriquecido:', agendamentoEnriquecido);
+    console.log('  - colaboradorId:', agendamentoEnriquecido?.colaboradorId);
 
     res.json({
       ...equipamento,

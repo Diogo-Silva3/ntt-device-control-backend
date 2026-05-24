@@ -30,7 +30,12 @@ const getDashboard = async (req, res) => {
     const whereEq = {
       empresaId,
       ...(projetoId && { projetoId }),
-      ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
+      ...(unidadeFiltro && { 
+        OR: [
+          { unidadeId: unidadeFiltro },
+          { unidadeId: null }
+        ]
+      }),
     };
 
     const whereUsr = {
@@ -72,29 +77,17 @@ const getDashboard = async (req, res) => {
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
-      // Para LAPTOP: conta apenas Softwares Instalados. Para DESKTOP: conta todos não entregues
+      // Para LAPTOP: conta Softwares Instalados + Asset Registrado. Para DESKTOP: conta todos não entregues
       isLaptopProject
-        ? prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: 'Softwares Instalados' } })
+        ? prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: { in: ['Softwares Instalados', 'Asset Registrado'] } } })
         : prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { not: { in: ['Entregue ao Usuário', 'Em Uso'] } } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
       prisma.unidade.count({ where: { empresaId } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Imagem Instalada', 'Softwares Instalados'] } } }),
+      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Imagem Instalada', 'Softwares Instalados', 'Asset Registrado'] } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Novo' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Softwares Instalados' } }),
-      prisma.equipamento.count({
-        where: {
-          ...whereEq,
-          status: { not: 'DESCARTADO' },
-          statusProcesso: 'Agendado para Entrega',
-          vinculacoes: {
-            some: {
-              ativa: true,
-              statusEntrega: 'PENDENTE'
-            }
-          }
-        },
-      }),
+      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
       prisma.equipamento.groupBy({
         by: ['marca'],

@@ -17,7 +17,6 @@ const auditoriaRoutes = require('./routes/auditoria.routes');
 const solicitacaoRoutes = require('./routes/solicitacao.routes');
 const assistenteIARoutes = require('./routes/assistente-ia.routes');
 const importacaoRoutes = require('./routes/importacao.routes');
-
 const { swaggerUi, swaggerSpec } = require('./config/swagger');
 const { iniciarCron } = require('./config/cron');
 // Middleware de sincronização desativado para evitar alterações automáticas de dados
@@ -49,7 +48,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id', 'x-projeto-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-empresa-id', 'x-projeto-id', 'x-lang'],
 }));
 
 // Confia no proxy reverso (Nginx na VPS)

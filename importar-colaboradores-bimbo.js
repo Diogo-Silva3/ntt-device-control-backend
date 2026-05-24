@@ -1,222 +1,208 @@
 const { PrismaClient } = require('@prisma/client');
 const XLSX = require('xlsx');
-const fs = require('fs');
 const path = require('path');
 
 const prisma = new PrismaClient();
 
 async function importarColaboradores() {
   try {
-    console.log('🔍 Iniciando importação de colaboradores...\n');
+    console.log('🚀 Iniciando importação de colaboradores...\n');
 
-    // Ler arquivo Excel
-    const caminhoArquivo = process.argv[2];
-    if (!caminhoArquivo) {
-      console.error('❌ Erro: Forneça o caminho do arquivo Excel');
-      console.error('Uso: node importar-colaboradores-bimbo.js <caminho-do-arquivo>');
+    // 1. Encontrar empresa "BIMBO BRASIL"
+    console.log('📍 Procurando empresa "BIMBO BRASIL"...');
+    const empresa = await prisma.empresa.findFirst({
+      where: {
+        nome: {
+          contains: 'BIMBO',
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (!empresa) {
+      console.error('❌ Empresa "BIMBO BRASIL" não encontrada!');
+      console.log('\n📋 Empresas disponíveis:');
+      const empresas = await prisma.empresa.findMany({
+        select: { id: true, nome: true }
+      });
+      empresas.forEach(e => console.log(`   ID: ${e.id} - ${e.nome}`));
       process.exit(1);
     }
 
-    if (!fs.existsSync(caminhoArquivo)) {
-      console.error(`❌ Erro: Arquivo não encontrado: ${caminhoArquivo}`);
+    console.log(`✅ Empresa encontrada: ID ${empresa.id} - ${empresa.nome}\n`);
+
+    // 2. Ler arquivo Excel
+    console.log('📂 Lendo arquivo modelo_colaboradores.xlsx...');
+    const caminhoArquivo = 'C:\\Temp\\wickbold\\modelo_colaboradores.xlsx';
+    
+    if (!require('fs').existsSync(caminhoArquivo)) {
+      console.error(`❌ Arquivo não encontrado: ${caminhoArquivo}`);
       process.exit(1);
     }
 
     const workbook = XLSX.readFile(caminhoArquivo);
-    const worksheet = workbook.Sheets['Ativos'];
-    
-    if (!worksheet) {
-      console.error('❌ Erro: Planilha "Ativos" não encontrada');
-      process.exit(1);
-    }
-
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const dados = XLSX.utils.sheet_to_json(worksheet);
-    console.log(`📊 Total de linhas na planilha: ${dados.length}\n`);
 
-    // Buscar colaboradores existentes no banco
-    const colaboradoresExistentes = await prisma.usuario.findMany({
-      select: { email: true, matricula: true }
+    console.log(`✅ Arquivo lido: ${dados.length} colaboradores encontrados\n`);
+
+    // 3. Buscar usuários existentes (TODA A PLATAFORMA)
+    console.log('🔍 Verificando usuários existentes no sistema...');
+    const usuariosExistentes = await prisma.usuario.findMany({
+      select: { email: true, id: true, nome: true, empresaId: true }
     });
 
-    const emailsExistentes = new Set(
-      colaboradoresExistentes
-        .filter(c => c.email)
-        .map(c => c.email.toLowerCase())
-    );
+    const emailsExistentes = new Map();
+    usuariosExistentes.forEach(u => {
+      if (u.email) {
+        emailsExistentes.set(u.email.toLowerCase(), {
+          id: u.id,
+          nome: u.nome,
+          empresaId: u.empresaId
+        });
+      }
+    });
 
-    const matriculasExistentes = new Set(
-      colaboradoresExistentes
-        .filter(c => c.matricula)
-        .map(c => c.matricula)
-    );
+    console.log(`✅ ${usuariosExistentes.length} usuários encontrados no sistema\n`);
 
-    console.log(`📦 Colaboradores já no banco: ${colaboradoresExistentes.length}`);
-    console.log(`   - Emails únicos: ${emailsExistentes.size}`);
-    console.log(`   - Matrículas únicas: ${matriculasExistentes.size}\n`);
-
-    // Processar dados
+    // 4. Processar importação
+    console.log('⚙️  Processando importação...\n');
+    
     const resultado = {
-      importados: [],
-      duplicados: [],
-      demitidos: [],
-      erros: []
+      criados: 0,
+      pulados: 0,
+      erros: 0,
+      detalhes: []
     };
 
     for (let idx = 0; idx < dados.length; idx++) {
       const linha = dados[idx];
-      const numeroLinha = idx + 2; // +2 porque começa em linha 2 (depois do header)
+      const numeroLinha = idx + 2;
 
-      // Extrair dados
-      const idBB = linha['ID BB']?.toString().trim();
-      const nome = linha['NOME']?.toString().trim();
-      const email = linha['E-MAIL']?.toString().trim().toLowerCase();
-      const cargo = linha['CARGO']?.toString().trim();
-      const status = linha['STATUS']?.toString().trim();
-
-      // Validações básicas
-      if (!nome || !email) {
-        resultado.erros.push({
-          linha: numeroLinha,
-          motivo: 'Nome ou Email vazio'
-        });
-        continue;
-      }
-
-      // Pular DEMITIDO
-      if (status === 'DEMITIDO') {
-        resultado.demitidos.push({
-          linha: numeroLinha,
-          nome,
-          email,
-          matricula: idBB
-        });
-        continue;
-      }
-
-      // Verificar duplicata por EMAIL
-      if (emailsExistentes.has(email)) {
-        resultado.duplicados.push({
-          linha: numeroLinha,
-          nome,
-          email,
-          matricula: idBB,
-          motivo: 'Email já existe no banco'
-        });
-        continue;
-      }
-
-      // Verificar duplicata por MATRÍCULA
-      if (idBB && matriculasExistentes.has(idBB)) {
-        resultado.duplicados.push({
-          linha: numeroLinha,
-          nome,
-          email,
-          matricula: idBB,
-          motivo: 'Matrícula já existe no banco'
-        });
-        continue;
-      }
-
-      // Importar
       try {
-        const novoColaborador = await prisma.usuario.create({
+        // Extrair dados
+        const nome = linha['Nome']?.toString().trim();
+        const email = linha['Email']?.toString().trim().toLowerCase();
+        const funcao = linha['Função']?.toString().trim();
+        const unidade = linha['Unidade']?.toString().trim();
+
+        // Pular linhas vazias
+        if (!nome || !email) {
+          continue;
+        }
+
+        // Validar email
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          resultado.erros++;
+          resultado.detalhes.push({
+            linha: numeroLinha,
+            nome,
+            email,
+            status: 'ERRO',
+            motivo: 'Email inválido'
+          });
+          continue;
+        }
+
+        // VERIFICAR SE EMAIL JÁ EXISTE (em qualquer empresa)
+        if (emailsExistentes.has(email)) {
+          const usuarioExistente = emailsExistentes.get(email);
+          resultado.pulados++;
+          resultado.detalhes.push({
+            linha: numeroLinha,
+            nome,
+            email,
+            status: 'PULADO',
+            motivo: `Email já existe no sistema (ID: ${usuarioExistente.id}, Usuário: ${usuarioExistente.nome})`
+          });
+          continue;
+        }
+
+        // Inferir ROLE baseado na FUNCAO
+        let role = 'TECNICO';
+        if (funcao) {
+          const funcaoUpper = funcao.toUpperCase();
+          if (funcaoUpper.includes('DIRETOR')) {
+            role = 'ADMIN';
+          } else if (funcaoUpper.includes('GERENTE') || 
+                     funcaoUpper.includes('SUPERVISOR') || 
+                     funcaoUpper.includes('COORDENADOR')) {
+            role = 'GERENTE';
+          }
+        }
+
+        // Criar novo usuário
+        const novoUsuario = await prisma.usuario.create({
           data: {
             nome: nome.toUpperCase(),
-            email,
-            funcao: cargo || null,
-            matricula: idBB || null,
-            role: 'TECNICO',
-            ativo: status === 'ATIVO' ? true : true, // Todos entram como ativo
-            empresaId: 1 // Assumindo empresa ID 1 (ajuste conforme necessário)
+            email: email,
+            funcao: funcao || null,
+            role: role,
+            ativo: true,
+            empresaId: empresa.id,
+            unidadeId: null  // Sem unidade por enquanto
           }
         });
 
-        resultado.importados.push({
-          linha: numeroLinha,
-          id: novoColaborador.id,
-          nome,
-          email,
-          matricula: idBB
+        resultado.criados++;
+        emailsExistentes.set(email, {
+          id: novoUsuario.id,
+          nome: novoUsuario.nome,
+          empresaId: novoUsuario.empresaId
         });
 
-        emailsExistentes.add(email);
-        if (idBB) matriculasExistentes.add(idBB);
+        // Mostrar progresso a cada 50 linhas
+        if ((idx + 1) % 50 === 0) {
+          console.log(`   ✓ ${idx + 1}/${dados.length} processados...`);
+        }
 
       } catch (erro) {
-        resultado.erros.push({
-          linha: numeroLinha,
-          nome,
-          email,
-          motivo: erro.message
-        });
+        resultado.erros++;
+        console.error(`   ❌ Erro na linha ${numeroLinha}: ${erro.message}`);
       }
     }
 
-    // Relatório final
+    // 5. Relatório final
     console.log('\n' + '='.repeat(60));
-    console.log('📋 RELATÓRIO DE IMPORTAÇÃO');
-    console.log('='.repeat(60) + '\n');
-
-    console.log(`✅ IMPORTADOS: ${resultado.importados.length}`);
-    if (resultado.importados.length > 0) {
-      console.log('   Primeiros 5:');
-      resultado.importados.slice(0, 5).forEach(item => {
-        console.log(`   - ${item.nome} (${item.email}) [Matrícula: ${item.matricula}]`);
-      });
-      if (resultado.importados.length > 5) {
-        console.log(`   ... e mais ${resultado.importados.length - 5}`);
-      }
-    }
-
-    console.log(`\n⚠️  DUPLICADOS (pulados): ${resultado.duplicados.length}`);
-    if (resultado.duplicados.length > 0) {
-      console.log('   Primeiros 5:');
-      resultado.duplicados.slice(0, 5).forEach(item => {
-        console.log(`   - ${item.nome} (${item.email}) - ${item.motivo}`);
-      });
-      if (resultado.duplicados.length > 5) {
-        console.log(`   ... e mais ${resultado.duplicados.length - 5}`);
-      }
-    }
-
-    console.log(`\n🚫 DEMITIDOS (não importados): ${resultado.demitidos.length}`);
-    if (resultado.demitidos.length > 0) {
-      console.log('   Primeiros 5:');
-      resultado.demitidos.slice(0, 5).forEach(item => {
-        console.log(`   - ${item.nome} (${item.email})`);
-      });
-      if (resultado.demitidos.length > 5) {
-        console.log(`   ... e mais ${resultado.demitidos.length - 5}`);
-      }
-    }
-
-    console.log(`\n❌ ERROS: ${resultado.erros.length}`);
-    if (resultado.erros.length > 0) {
-      console.log('   Primeiros 5:');
-      resultado.erros.slice(0, 5).forEach(item => {
-        console.log(`   - Linha ${item.linha}: ${item.motivo}`);
-      });
-      if (resultado.erros.length > 5) {
-        console.log(`   ... e mais ${resultado.erros.length - 5}`);
-      }
-    }
-
-    console.log('\n' + '='.repeat(60));
-    console.log(`📊 RESUMO FINAL`);
+    console.log('📊 RELATÓRIO FINAL DE IMPORTAÇÃO');
     console.log('='.repeat(60));
-    console.log(`Total processado: ${dados.length}`);
-    console.log(`✅ Importados: ${resultado.importados.length}`);
-    console.log(`⚠️  Duplicados: ${resultado.duplicados.length}`);
-    console.log(`🚫 Demitidos: ${resultado.demitidos.length}`);
-    console.log(`❌ Erros: ${resultado.erros.length}`);
+    console.log(`✅ Criados:        ${resultado.criados}`);
+    console.log(`⏭️  Pulados:        ${resultado.pulados} (duplicados)`);
+    console.log(`❌ Erros:          ${resultado.erros}`);
+    console.log(`📈 Total:          ${dados.length}`);
     console.log('='.repeat(60) + '\n');
+
+    if (resultado.pulados > 0) {
+      console.log('📋 Primeiros 10 pulados (duplicados):');
+      resultado.detalhes
+        .filter(d => d.status === 'PULADO')
+        .slice(0, 10)
+        .forEach(d => {
+          console.log(`   • ${d.nome} (${d.email}) - ${d.motivo}`);
+        });
+      console.log();
+    }
+
+    if (resultado.erros > 0) {
+      console.log('⚠️  Primeiros 10 erros:');
+      resultado.detalhes
+        .filter(d => d.status === 'ERRO')
+        .slice(0, 10)
+        .forEach(d => {
+          console.log(`   • ${d.nome} (${d.email}) - ${d.motivo}`);
+        });
+      console.log();
+    }
+
+    console.log('✨ Importação concluída com sucesso!');
 
   } catch (erro) {
-    console.error('❌ Erro fatal:', erro.message);
+    console.error('❌ Erro fatal:', erro);
     process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
+// Executar
 importarColaboradores();

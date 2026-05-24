@@ -1,56 +1,58 @@
-require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
+
 const prisma = new PrismaClient();
 
-async function listar() {
+async function listarAgendados() {
   try {
-    console.log('=== LISTANDO EQUIPAMENTOS AGENDADOS ===\n');
-
-    const projeto = await prisma.projeto.findFirst({
-      where: { nome: { contains: 'LAPTOP' } },
-    });
+    console.log('🔍 Listando todos os equipamentos com statusProcesso: "Agendado para Entrega"\n');
 
     const agendados = await prisma.equipamento.findMany({
       where: {
-        projetoId: projeto.id,
         statusProcesso: 'Agendado para Entrega',
+        status: { not: 'DESCARTADO' }
       },
-      include: {
+      select: {
+        id: true,
+        serialNumber: true,
+        marca: true,
+        modelo: true,
+        statusProcesso: true,
+        status: true,
+        empresaId: true,
+        projetoId: true,
+        unidadeId: true,
         vinculacoes: {
           where: { ativa: true },
-          include: {
-            usuario: { select: { nome: true } },
-            tecnico: { select: { nome: true } },
-          },
-        },
+          select: {
+            id: true,
+            statusEntrega: true,
+            usuario: { select: { nome: true } }
+          }
+        }
       },
+      orderBy: { createdAt: 'desc' }
     });
 
-    console.log(`Total de equipamentos agendados: ${agendados.length}\n`);
+    console.log(`Total encontrado: ${agendados.length}\n`);
 
-    agendados.forEach(eq => {
-      console.log(`${eq.serialNumber}:`);
-      console.log(`  Status: ${eq.statusProcesso}`);
-      
-      if (eq.vinculacoes.length > 0) {
-        const vinc = eq.vinculacoes[0];
-        console.log(`  Vinculação: ${vinc.usuario.nome}`);
-        console.log(`  Técnico: ${vinc.tecnico?.nome || 'N/A'}`);
-        console.log(`  Status Vinculação: ${vinc.statusEntrega}`);
-        console.log(`  ID Vinculação: ${vinc.id}`);
-      } else {
-        console.log(`  ❌ SEM VINCULAÇÃO ATIVA`);
-      }
-      console.log('');
+    agendados.forEach((eq, idx) => {
+      console.log(`${idx + 1}. Serial: ${eq.serialNumber}`);
+      console.log(`   Marca/Modelo: ${eq.marca} ${eq.modelo}`);
+      console.log(`   Status: ${eq.status}`);
+      console.log(`   StatusProcesso: ${eq.statusProcesso}`);
+      console.log(`   EmpresaId: ${eq.empresaId}, ProjetoId: ${eq.projetoId}`);
+      console.log(`   Vinculações ativas: ${eq.vinculacoes.length}`);
+      eq.vinculacoes.forEach(v => {
+        console.log(`     - ${v.usuario.nome} (StatusEntrega: ${v.statusEntrega})`);
+      });
+      console.log();
     });
 
-    console.log('✅ LISTAGEM CONCLUÍDA!');
-
-  } catch (error) {
-    console.error('❌ Erro:', error);
+  } catch (erro) {
+    console.error('❌ Erro:', erro.message);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-listar();
+listarAgendados();

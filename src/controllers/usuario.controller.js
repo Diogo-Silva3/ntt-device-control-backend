@@ -4,17 +4,20 @@ const { registrarLog } = require('./auditoria.controller');
 
 const listar = async (req, res) => {
   try {
-    const { busca, unidadeId, page = 1, limit = 50, comAcesso, semAcesso, role } = req.query;
+    const { busca, unidadeId, page = 1, limit = 10000, comAcesso, semAcesso, role } = req.query;
     const empresaId = req.usuario.empresaId;
     const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    console.log('DEBUG LISTAR USUARIOS:', { role, comAcesso, limit: parseInt(limit), skip });
 
     const where = {
       empresaId,
       ativo: true,
       ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
       ...(role && { role }),
-      ...(comAcesso === 'true' && { senha: { not: null } }),
-      ...(semAcesso === 'true' && { senha: null }),
+      // Filtrar por acesso APENAS se não for colaborador
+      ...(role !== 'COLABORADOR' && comAcesso === 'true' && { senha: { not: null } }),
+      ...(role !== 'COLABORADOR' && semAcesso === 'true' && { senha: null }),
       ...(busca && {
         OR: [
           { nome: { contains: busca, mode: 'insensitive' } },
@@ -28,12 +31,13 @@ const listar = async (req, res) => {
       prisma.usuario.count({ where }),
       prisma.usuario.findMany({
         where,
-        include: { unidade: true },
         orderBy: { nome: 'asc' },
         skip,
         take: parseInt(limit),
       }),
     ]);
+
+    console.log('DEBUG USUARIOS RETORNADOS:', { total, retornados: usuarios.length });
 
     const usuariosSemSenha = usuarios.map(({ senha, ...u }) => u);
     res.json({ data: usuariosSemSenha, total, page: parseInt(page), limit: parseInt(limit) });

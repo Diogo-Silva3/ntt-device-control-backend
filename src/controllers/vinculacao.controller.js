@@ -10,18 +10,26 @@ const includeCompleto = {
 
 const listar = async (req, res) => {
   try {
-    const { ativa, usuarioId, equipamentoId, statusEntrega, page, limit: limitParam } = req.query;
+    const { ativa, usuarioId, equipamentoId, statusEntrega, unidadeId, page, limit: limitParam } = req.query;
     const empresaId = req.usuario.empresaId;
     const projetoId = req.headers['x-projeto-id'] ? parseInt(req.headers['x-projeto-id']) : null;
 
+    console.log('DEBUG VINCULACAO LISTAR:', { unidadeId, statusEntrega, ativa, empresaId });
+
+    // Se statusEntrega é enviado, não filtra por ativa (mostra todos)
+    // Se statusEntrega não é enviado, filtra por ativa (padrão: true)
     const where = {
-      ativa: ativa !== undefined ? (ativa === 'true') : true, // Por padrão, mostra apenas ativas
+      ...(statusEntrega ? { statusEntrega } : { ativa: ativa !== undefined ? (ativa === 'true') : true }),
       ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
       ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
-      ...(statusEntrega && { statusEntrega }),
       ...(projetoId && { equipamento: { projetoId } }),
-      usuario: { empresaId },
+      usuario: {
+        empresaId,
+        ...(unidadeId && { unidadeId: parseInt(unidadeId) }),
+      },
     };
+
+    console.log('DEBUG WHERE FINAL:', JSON.stringify(where, null, 2));
 
     // Paginação opcional — se page não for enviado, retorna tudo (compatibilidade)
     if (page) {
@@ -97,9 +105,10 @@ const criar = async (req, res) => {
       });
     }
 
-    // Se tem agendamento, muda statusProcesso para "Agendado para Entrega"
+    // Se tem agendamento, o status físico continua DISPONIVEL (pois ainda não foi entregue).
+    // Se não tem agendamento (entrega imediata), o status físico vira EM_USO.
     const equipamentoUpdate = {
-      status: 'EM_USO',
+      status: dataAgendamento ? 'DISPONIVEL' : 'EM_USO',
       ...(dataAgendamento && { statusProcesso: 'Agendado para Entrega' }),
     };
 
