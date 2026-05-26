@@ -43,6 +43,19 @@ const includeBase = {
   },
 };
 
+const includeCompleto = {
+  unidade: true,
+  tecnico: { select: { id: true, nome: true } },
+  vinculacoes: {
+    include: { usuario: { select: { id: true, nome: true, funcao: true, email: true } } },
+    orderBy: { dataInicio: 'desc' },
+  },
+  historicos: {
+    include: { usuario: { select: { id: true, nome: true } } },
+    orderBy: { createdAt: 'desc' },
+  },
+};
+
 const listar = async (req, res) => {
   try {
     const { busca, status, statusProcesso, unidadeId, tipo, marca, page = 1, limit = 50 } = req.query;
@@ -107,18 +120,7 @@ const buscarPorId = async (req, res) => {
   try {
     const equipamento = await prisma.equipamento.findFirst({
       where: { id: parseInt(req.params.id), empresaId: req.usuario.empresaId },
-      include: {
-        unidade: true,
-        tecnico: { select: { id: true, nome: true } },
-        vinculacoes: {
-          include: { usuario: { select: { id: true, nome: true, funcao: true, email: true } } },
-          orderBy: { dataInicio: 'desc' },
-        },
-        historicos: {
-          include: { usuario: { select: { id: true, nome: true } } },
-          orderBy: { createdAt: 'desc' },
-        },
-      },
+      include: includeCompleto,
     });
 
     if (!equipamento) return res.status(404).json({ error: 'Equipamento não encontrado' });
@@ -308,7 +310,7 @@ const atualizar = async (req, res) => {
             unidadeId: novaUnidadeId,
             tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
           },
-          include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
+          include: includeCompleto,
         });
 
         if (unidadeMudou) {
@@ -389,7 +391,7 @@ const atualizar = async (req, res) => {
         ),
         tecnicoId: tecnicoId !== undefined ? (tecnicoId ? parseInt(tecnicoId) : null) : undefined,
         },
-        include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
+        include: includeCompleto,
       });
     }
 
@@ -537,6 +539,15 @@ const atualizarChecklist = async (req, res) => {
     const field = tipo === 'entrega' ? 'checklistEntrega' : 'checklistPreparacao';
     const data = { [field]: JSON.stringify(itens) };
 
+    // Buscar estado anterior para saber se tem agendamento
+    const eqAnterior = await prisma.equipamento.findUnique({
+      where: { id },
+      select: { agendamento: true, statusProcesso: true }
+    });
+
+    let devecriarVinculacao = false;
+    let colaboradorIdVinculacao = null;
+
     // Se checklist de entrega completo, muda status para Em Uso
     if (tipo === 'entrega' && itens && Object.values(itens).every(v => v === true)) {
       data.statusProcesso = 'Entregue ao Usuário';
@@ -544,6 +555,18 @@ const atualizarChecklist = async (req, res) => {
       // Marca checklist de preparação como completo também
       const prepCompleto = Object.fromEntries(CHECKLIST_PREPARACAO.map(i => [i, true]));
       data.checklistPreparacao = JSON.stringify(prepCompleto);
+
+      if (eqAnterior?.agendamento) {
+        try {
+          const agend = JSON.parse(eqAnterior.agendamento);
+          if (agend?.colaboradorId) {
+            devecriarVinculacao = true;
+            colaboradorIdVinculacao = parseInt(agend.colaboradorId);
+          }
+        } catch (e) {
+          console.log('⚠️ Não conseguiu parsear agendamento do equipamento para checklist');
+        }
+      }
     }
 
     // Se checklist de preparação: calcular progresso e atualizar statusProcesso
@@ -574,10 +597,35 @@ const atualizarChecklist = async (req, res) => {
       data.status = statusParaProcesso(data.statusProcesso);
     }
 
+    // Criar vinculação se necessário (antes de atualizar o equipamento com os novos includes)
+    if (devecriarVinculacao && colaboradorIdVinculacao) {
+      try {
+        console.log('🔄 Desativando todas as vinculações ativas anteriores (via checklist)...');
+        await prisma.vinculacao.updateMany({
+          where: { equipamentoId: id, ativa: true },
+          data: { ativa: false, dataFim: new Date() }
+        });
+        
+        console.log('➕ Criando nova vinculação ENTREGUE (via checklist)...');
+        await prisma.vinculacao.create({
+          data: {
+            equipamentoId: id,
+            usuarioId: colaboradorIdVinculacao,
+            tecnicoId: req.usuario.id,
+            statusEntrega: 'ENTREGUE',
+            dataInicio: new Date(),
+            ativa: true,
+          }
+        });
+      } catch (err) {
+        console.error('❌ Erro ao criar vinculação via checklist:', err.message);
+      }
+    }
+
     const equipamento = await prisma.equipamento.update({
       where: { id },
       data,
-      include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
+      include: includeCompleto,
     });
 
     res.json({
@@ -604,7 +652,7 @@ const atualizarAgendamento = async (req, res) => {
         statusProcesso: 'Agendado para Entrega',
         ...(agendamento.data && { dataEntrega: new Date(agendamento.data) }),
       },
-      include: { unidade: true, tecnico: { select: { id: true, nome: true } } },
+      include: includeCompleto,
     });
 
     // Se tem colaboradorId no agendamento, atualizar/criar vinculação

@@ -118,7 +118,25 @@ const atualizar = async (req, res) => {
       if (email !== undefined) data.email = email || null;
       if (funcao !== undefined) data.funcao = funcao || null;
       if (role !== undefined) data.role = role;
-      if (ativo !== undefined) data.ativo = ativo;
+      
+      // TRAVA DE SEGURANÇA NA ATUALIZAÇÃO: Não permite desativar usuário com equipamento ativo
+      if (ativo !== undefined) {
+        if (ativo === false) {
+          const vinculacoesAtivas = await prisma.vinculacao.count({
+            where: { 
+              usuarioId: targetId,
+              ativa: true
+            }
+          });
+          if (vinculacoesAtivas > 0) {
+            return res.status(400).json({ 
+              error: 'Este colaborador não pode ser desativado pois possui equipamentos atribuídos ativos.' 
+            });
+          }
+        }
+        data.ativo = ativo;
+      }
+      
       if (unidadeId !== undefined) data.unidadeId = unidadeId ? parseInt(unidadeId) : null;
       if (projetoId !== undefined) data.projetoId = projetoId ? parseInt(projetoId) : null;
       if (empresaId && req.usuario.role === 'SUPERADMIN') data.empresaId = parseInt(empresaId);
@@ -154,8 +172,24 @@ const atualizar = async (req, res) => {
 
 const deletar = async (req, res) => {
   try {
+    const usuarioId = parseInt(req.params.id);
+
+    // TRAVA DE SEGURANÇA NA EXCLUSÃO: Não permite excluir usuário com equipamento ativo
+    const vinculacoesAtivas = await prisma.vinculacao.count({
+      where: { 
+        usuarioId,
+        ativa: true
+      }
+    });
+
+    if (vinculacoesAtivas > 0) {
+      return res.status(400).json({ 
+        error: 'Este colaborador não pode ser removido pois possui equipamentos atribuídos ativos.' 
+      });
+    }
+
     await prisma.usuario.update({
-      where: { id: parseInt(req.params.id) },
+      where: { id: usuarioId },
       data: { ativo: false },
     });
     res.json({ message: 'Usuário desativado com sucesso' });

@@ -16,10 +16,11 @@ const listar = async (req, res) => {
 
     console.log('DEBUG VINCULACAO LISTAR:', { unidadeId, statusEntrega, ativa, empresaId });
 
-    // Se statusEntrega é enviado, não filtra por ativa (mostra todos)
+    // Se statusEntrega é enviado, filtra por statusEntrega E ativa=true
     // Se statusEntrega não é enviado, filtra por ativa (padrão: true)
     const where = {
-      ...(statusEntrega ? { statusEntrega } : { ativa: ativa !== undefined ? (ativa === 'true') : true }),
+      ativa: ativa !== undefined ? (ativa === 'true') : true,
+      ...(statusEntrega && { statusEntrega }),
       ...(usuarioId && { usuarioId: parseInt(usuarioId) }),
       ...(equipamentoId && { equipamentoId: parseInt(equipamentoId) }),
       ...(projetoId && { equipamento: { projetoId } }),

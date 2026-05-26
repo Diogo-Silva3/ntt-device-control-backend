@@ -30,12 +30,7 @@ const getDashboard = async (req, res) => {
     const whereEq = {
       empresaId,
       ...(projetoId && { projetoId }),
-      ...(unidadeFiltro && { 
-        OR: [
-          { unidadeId: unidadeFiltro },
-          { unidadeId: null }
-        ]
-      }),
+      ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
     };
 
     const whereUsr = {
