@@ -39,13 +39,11 @@ const getDashboard = async (req, res) => {
       ...(unidadeFiltro && { unidadeId: unidadeFiltro }),
     };
 
-    const whereVinc = tecnicoId
-      ? { ativa: true, tecnicoId }
-      : {
-          ativa: true,
-          ...(projetoId && { equipamento: { projetoId } }),
-          usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
-        };
+    // whereVincUnidade: filtra vinculações pela unidade do USUÁRIO (consistente com VinculacoesPage)
+    const whereVincUnidade = {
+      ...(projetoId && { equipamento: { projetoId } }),
+      usuario: { empresaId, ...(unidadeFiltro && { unidadeId: unidadeFiltro }) },
+    };
 
     const [
       totalEquipamentos,
@@ -122,15 +120,23 @@ const getDashboard = async (req, res) => {
           updatedAt: { lt: tresDiasAtras },
         },
       }),
+      // totalProjeto: conta equipamentos do projeto/unidade
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
-      prisma.equipamento.count({
+      // maquinasAgendadas: conta vinculações PENDENTES filtrando por unidade do USUÁRIO (igual à VinculacoesPage)
+      prisma.vinculacao.count({
         where: {
-          ...whereEq,
-          status: { not: 'DESCARTADO' },
-          statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] },
+          ...whereVincUnidade,
+          statusEntrega: 'PENDENTE',
         },
       }),
+      // maquinasEntregues: conta vinculações ENTREGUES filtrando por unidade do USUÁRIO (igual à VinculacoesPage)
+      prisma.vinculacao.count({
+        where: {
+          ...whereVincUnidade,
+          statusEntrega: 'ENTREGUE',
+        },
+      }),
+      // faltamEntregar: equipamentos disponíveis (prontos para entrega) filtrando por unidade do equipamento
       prisma.equipamento.count({
         where: {
           ...whereEq,
