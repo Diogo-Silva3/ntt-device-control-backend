@@ -155,8 +155,9 @@ const buscarPorId = async (req, res) => {
 
 const criar = async (req, res) => {
   try {
-    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId } = req.body;
+    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, linhaFonica, dataGarantia } = req.body;
     const empresaId = req.usuario.empresaId;
+    const projetoId = req.usuario.projetoIdAtivo || null;
 
     const equipamento = await prisma.equipamento.create({
       data: {
@@ -166,7 +167,10 @@ const criar = async (req, res) => {
         unidadeId: unidadeId ? parseInt(unidadeId) : null,
         tecnicoId: tecnicoId ? parseInt(tecnicoId) : null,
         empresaId,
+        projetoId,
         observacao,
+        linhaFonica: linhaFonica || null,
+        dataGarantia: dataGarantia ? new Date(dataGarantia) : null,
       },
       include: { unidade: true },
     });
@@ -185,7 +189,7 @@ const criar = async (req, res) => {
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId,
-      projetoId: req.usuario?.projetoIdAtivo || null,
+      projetoId,
       acao: 'EQUIPAMENTO_CRIADO',
       detalhes: `Equipamento criado: ${tipo} ${marca} ${modelo} — S/N: ${serialNumber || '—'}`,
       ip: req.ip,
@@ -199,7 +203,7 @@ const criar = async (req, res) => {
 
 const atualizar = async (req, res) => {
   try {
-    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa, agendamento } = req.body;
+    const { tipo, marca, modelo, serialNumber, patrimonio, status, statusProcesso, unidadeId, observacao, tecnicoId, dataEntrega, dataGarantia, comentarioEtapa, agendamento, linhaFonica } = req.body;
     const id = parseInt(req.params.id);
 
     console.log('📝 Atualizando equipamento', id);
@@ -294,7 +298,7 @@ const atualizar = async (req, res) => {
         const eq = await tx.equipamento.update({
           where: { id },
           data: {
-            tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
+            tipo, marca, modelo, serialNumber, patrimonio, status, observacao, linhaFonica,
             ...(statusProcesso !== undefined && { statusProcesso }),
             // Sincroniza status físico com statusProcesso automaticamente
             ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),
@@ -376,7 +380,7 @@ const atualizar = async (req, res) => {
       equipamento = await prisma.equipamento.update({
         where: { id },
         data: {
-        tipo, marca, modelo, serialNumber, patrimonio, status, observacao,
+        tipo, marca, modelo, serialNumber, patrimonio, status, observacao, linhaFonica,
         ...(statusProcesso !== undefined && { statusProcesso }),
         // Sincroniza status físico com statusProcesso automaticamente
         ...(statusProcesso !== undefined && !status && { status: statusParaProcesso(statusProcesso) }),

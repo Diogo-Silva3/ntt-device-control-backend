@@ -24,7 +24,9 @@ const getDashboard = async (req, res) => {
 
     // IDs dos projetos
     const TECH_REFRESH_LAPTOP_2026_ID = 1;
+    const TECH_REFRESH_CELULARES_2026_ID = 4;
     const isLaptopProject = projetoId === TECH_REFRESH_LAPTOP_2026_ID;
+    const isCelularesProject = projetoId === TECH_REFRESH_CELULARES_2026_ID;
 
     // Dashboard mostra TODOS os equipamentos da empresa/projeto (não filtra por tecnicoId)
     const whereEq = {
@@ -67,20 +69,26 @@ const getDashboard = async (req, res) => {
       maquinasAgendadas,
       maquinasEntregues,
       faltamEntregar,
+      todosDisponiveis,
     ] = await Promise.all([
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'EM_USO' } }),
-      // Para LAPTOP: conta Softwares Instalados + Asset Registrado. Para DESKTOP: conta todos não entregues
+      // Para LAPTOP: conta Softwares Instalados + Asset Registrado. Para CELULARES: conta status DISPONIVEL E statusProcesso != Agendado. Para DESKTOP: conta todos não entregues
       isLaptopProject
         ? prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: { in: ['Softwares Instalados', 'Asset Registrado'] } } })
-        : prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { not: { in: ['Entregue ao Usuário', 'Em Uso'] } } } }),
+        : isCelularesProject
+          ? prisma.equipamento.count({ where: { ...whereEq, status: 'DISPONIVEL', statusProcesso: { not: 'Agendado para Entrega' } } })
+          : prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { not: { in: ['Entregue ao Usuário', 'Em Uso'] } } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: 'MANUTENCAO' } }),
       prisma.usuario.count({ where: whereUsr }),
       prisma.unidade.count({ where: { empresaId } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Imagem Instalada', 'Softwares Instalados', 'Asset Registrado'] } } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Novo' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Softwares Instalados' } }),
-      prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
+      // Para celulares: contar vinculações PENDENTES (agendamentos reais). Para outros: contar statusProcesso 'Agendado para Entrega'
+      isCelularesProject
+        ? prisma.vinculacao.count({ where: { equipamento: { projetoId }, statusEntrega: 'PENDENTE', ativa: true } })
+        : prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: 'Agendado para Entrega' } }),
       prisma.equipamento.count({ where: { ...whereEq, status: { not: 'DESCARTADO' }, statusProcesso: { in: ['Entregue ao Usuário', 'Em Uso'] } } }),
       prisma.equipamento.groupBy({
         by: ['marca'],
@@ -140,14 +148,24 @@ const getDashboard = async (req, res) => {
       prisma.equipamento.count({
         where: {
           ...whereEq,
-          status: { not: 'DESCARTADO' },
-          statusProcesso: 'Softwares Instalados'
+          status: 'DISPONIVEL'
+        },
+      }),
+      // Para celulares: contar TODOS com status DISPONIVEL (duplicado para usar em maquinasFaltamEntregar)
+      prisma.equipamento.count({
+        where: {
+          ...whereEq,
+          status: 'DISPONIVEL'
         },
       }),
     ]);
 
-    // Para LAPTOP: usa disponiveis. Para DESKTOP: usa totalProjeto - entregues
-    const maquinasFaltamEntregar = isLaptopProject ? disponiveis : (totalProjeto - maquinasEntregues);
+    // Para LAPTOP: usa disponiveis. Para CELULARES: usa disponiveis (mesmo critério do card Disponíveis). Para DESKTOP: usa totalProjeto - entregues
+    const maquinasFaltamEntregar = isLaptopProject 
+      ? disponiveis 
+      : isCelularesProject
+        ? disponiveis  // Para celulares: faltam entregar = mesmo valor do card Disponíveis (exclui 'Agendado para Entrega')
+        : (totalProjeto - maquinasEntregues);
 
     // Busca nomes das unidades para porUnidade
     const unidadeIds = porUnidadeRaw.map(u => u.unidadeId).filter(Boolean);
@@ -211,10 +229,10 @@ const getDashboard = async (req, res) => {
       alertas: { atrasadosNaPreparacao, colaboradoresSemEquipamento },
       techRefresh: { 
         totalProjeto, 
-        maquinasAgendadas: maquinasAgendadas,
-        maquinasEntregues: maquinasEntregues, 
+        maquinasAgendadas: agendados,
+        maquinasEntregues: entregues, 
         maquinasFaltamEntregar,
-        totalAtribuido: maquinasEntregues,
+        totalAtribuido: entregues,
       },
       porMarca: porMarca.map(m => ({ marca: m.marca || 'Sem marca', total: m._count.marca })),
       porUnidade,
