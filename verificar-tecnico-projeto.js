@@ -1,31 +1,57 @@
-const prisma = require('./src/config/prisma');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-(async () => {
+async function verificar() {
   try {
-    console.log('Procurando técnico com projetoId...');
-    const u = await prisma.usuario.findFirst({
-      where: { role: 'TECNICO', projetoId: { not: null } },
-      include: { projeto: true }
+    console.log('🔍 Verificando vinculação de técnico com projeto...\n');
+
+    // Buscar o técnico Reidel
+    const reidel = await prisma.usuario.findFirst({
+      where: {
+        nome: { contains: 'REIDEL', mode: 'insensitive' }
+      }
     });
 
-    if (u) {
-      console.log('\n✅ Técnico encontrado:');
-      console.log(JSON.stringify(u, null, 2));
-    } else {
-      console.log('\n❌ Nenhum técnico com projetoId encontrado');
-      
-      // Listar todos os técnicos
-      console.log('\nListando todos os técnicos:');
-      const tecnicos = await prisma.usuario.findMany({
-        where: { role: 'TECNICO' },
-        select: { id: true, nome: true, email: true, projetoId: true }
-      });
-      console.log(JSON.stringify(tecnicos, null, 2));
+    if (!reidel) {
+      console.log('❌ Técnico Reidel não encontrado');
+      return;
     }
-    
-    process.exit(0);
-  } catch (err) {
-    console.error('Erro:', err.message);
-    process.exit(1);
+
+    console.log(`✅ Técnico encontrado: ${reidel.nome} (ID: ${reidel.id})\n`);
+
+    // Buscar o projeto de celulares
+    const projeto = await prisma.projeto.findFirst({
+      where: {
+        nome: { contains: 'CELULAR', mode: 'insensitive' }
+      }
+    });
+
+    if (!projeto) {
+      console.log('❌ Projeto de celulares não encontrado');
+      return;
+    }
+
+    console.log(`✅ Projeto encontrado: ${projeto.nome} (ID: ${projeto.id})\n`);
+
+    // Verificar se existe vinculação
+    console.log('📋 Verificando se há tabela de vinculação técnico-projeto...\n');
+
+    // Listar todos os projetos
+    const projetos = await prisma.projeto.findMany({
+      select: {
+        id: true,
+        nome: true
+      }
+    });
+
+    console.log('📊 Projetos cadastrados:');
+    console.table(projetos);
+
+  } catch (error) {
+    console.error('Erro:', error.message);
+  } finally {
+    await prisma.$disconnect();
   }
-})();
+}
+
+verificar();

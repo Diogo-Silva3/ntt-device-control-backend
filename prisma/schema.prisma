@@ -113,6 +113,7 @@ model Equipamento {
   qrCode               String?      @map("qr_code")
   foto                 String?
   dataGarantia         DateTime?    @map("data_garantia")
+  linhaFonica          String?      @map("linha_fonica")
   unidadeId            Int?         @map("unidade_id")
   empresaId            Int          @map("empresa_id")
   projetoId            Int?         @map("projeto_id")

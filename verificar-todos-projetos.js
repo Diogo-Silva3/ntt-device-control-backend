@@ -1,49 +1,48 @@
-require('dotenv').config();
 const { PrismaClient } = require('@prisma/client');
+
 const prisma = new PrismaClient();
 
-async function verificar() {
+async function verificarProjetos() {
   try {
-    console.log('=== VERIFICANDO TODOS OS PROJETOS ===\n');
+    console.log('📊 VERIFICANDO TODOS OS PROJETOS...\n');
 
-    const projetos = await prisma.projeto.findMany({
-      include: {
-        equipamentos: {
-          where: { status: { not: 'DESCARTADO' } },
-          include: {
-            vinculacoes: {
-              where: { ativa: true },
-            },
-          },
-        },
-      },
+    // Buscar empresa BIMBO BRASIL
+    const empresa = await prisma.empresa.findFirst({
+      where: { nome: { contains: 'BIMBO', mode: 'insensitive' } }
     });
 
-    for (const projeto of projetos) {
-      const vinculacoesAtivas = projeto.equipamentos.flatMap(e => e.vinculacoes);
-      
-      const porStatus = {};
-      vinculacoesAtivas.forEach(v => {
-        porStatus[v.statusEntrega] = (porStatus[v.statusEntrega] || 0) + 1;
-      });
-
-      const entregues = porStatus['ENTREGUE'] || 0;
-      const pendentes = porStatus['PENDENTE'] || 0;
-
-      console.log(`📊 ${projeto.nome} (ID: ${projeto.id})`);
-      console.log(`   Total equipamentos: ${projeto.equipamentos.length}`);
-      console.log(`   Vinculações ativas: ${vinculacoesAtivas.length}`);
-      console.log(`   ENTREGUE: ${entregues}`);
-      console.log(`   PENDENTE: ${pendentes}`);
-      console.log(`   OUTROS: ${vinculacoesAtivas.length - entregues - pendentes}`);
-      console.log('');
+    if (!empresa) {
+      console.error('❌ Empresa não encontrada');
+      process.exit(1);
     }
 
+    // Buscar todos os projetos
+    const projetos = await prisma.projeto.findMany({
+      where: { empresaId: empresa.id }
+    });
+
+    console.log(`✅ Total de projetos: ${projetos.length}\n`);
+
+    // Para cada projeto, contar equipamentos
+    for (const projeto of projetos) {
+      const equipamentos = await prisma.equipamento.findMany({
+        where: { projetoId: projeto.id }
+      });
+
+      console.log(`📦 ${projeto.nome}`);
+      console.log(`   ID: ${projeto.id}`);
+      console.log(`   Equipamentos: ${equipamentos.length}`);
+      console.log();
+    }
+
+    process.exit(0);
+
   } catch (error) {
-    console.error('❌ Erro:', error);
+    console.error('❌ Erro:', error.message);
+    process.exit(1);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-verificar();
+verificarProjetos();

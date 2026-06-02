@@ -1,4 +1,4 @@
-const prisma = require('../config/prisma');
+﻿const prisma = require('../config/prisma');
 const { registrarLog } = require('./auditoria.controller');
 
 const TIPOS_VALIDOS = ['TROCA', 'NOVO', 'RETORNO', 'ENVIO'];
@@ -357,34 +357,35 @@ const atualizar = async (req, res) => {
   }
 };
 
-// DELETE /api/solicitacoes/:id — soft delete
+// DELETE /api/solicitacoes/:id - hard delete
 const excluir = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const empresaId = req.usuario.empresaId;
 
     const solicitacao = await prisma.solicitacaoAtivo.findUnique({ where: { id } });
-    if (!solicitacao) return res.status(404).json({ error: 'Solicitação não encontrada' });
-    if (solicitacao.empresaId !== empresaId) return res.status(403).json({ error: 'Acesso não autorizado' });
+    if (!solicitacao) return res.status(404).json({ error: 'Solicitacao nao encontrada' });
+    if (solicitacao.empresaId !== empresaId) return res.status(403).json({ error: 'Acesso nao autorizado' });
 
-    await prisma.solicitacaoAtivo.update({
-      where: { id },
-      data: { status: 'ENCERRADO' },
-    });
+    // Deletar em transacao: auditoria primeiro (FK), depois a solicitacao
+    await prisma.$transaction([
+      prisma.solicitacaoAuditoria.deleteMany({ where: { solicitacaoId: id } }),
+      prisma.solicitacaoAtivo.delete({ where: { id } }),
+    ]);
 
-    res.json({ message: 'Solicitação encerrada com sucesso' });
+    res.json({ message: 'Solicitacao excluida com sucesso' });
 
     registrarLog({
       usuarioId: req.usuario.id,
       empresaId,
       acao: 'EXCLUIR_SOLICITACAO',
-      detalhes: `Solicitação #${id} encerrada (soft delete)`,
+      detalhes: `Solicitacao #${id} (${solicitacao.numeroChamado}) excluida permanentemente`,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erro ao encerrar solicitação' });
+    res.status(500).json({ error: 'Erro ao excluir solicitacao' });
   }
 };
 

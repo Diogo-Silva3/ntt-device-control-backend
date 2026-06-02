@@ -1,0 +1,435 @@
+{
+  "timestamp": "2026-06-01T18:46:13.664Z",
+  "projeto": "TECH REFRESH CELULARES 2026",
+  "resumo": {
+    "faltamEntregar": 38,
+    "disponivel": 4,
+    "total": 42,
+    "duplicatas": 0
+  },
+  "faltamEntregar": [
+    {
+      "serialNumber": "358680812073044",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812076518",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812081112",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812084769",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812085394",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812085774",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812089297",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812090493",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812093786",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812093919",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812630579",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812631981",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  BANDEIRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812632351",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812633961",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812634969",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812636196",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812636212",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812636667",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812636733",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812643267",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812643465",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812645577",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812645817",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812648324",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812666987",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812667969",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812668660",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812668678",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  BANDEIRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812670492",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  BANDEIRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812674122",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  BANDEIRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812674312",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  BANDEIRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812677778",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  IMIGRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812678610",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812678628",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812678743",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812679204",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812692546",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "CDVA -  BANDEIRANTES"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    },
+    {
+      "serialNumber": "358680812692637",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - PORTO ALEGRE"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Agendado para Entrega"
+    }
+  ],
+  "disponivel": [
+    {
+      "serialNumber": "358680812085931",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - BASTECK"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Imagem Instalada"
+    },
+    {
+      "serialNumber": "358680812646542",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - RJ"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Imagem Instalada"
+    },
+    {
+      "serialNumber": "358680812653464",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - RJ"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Imagem Instalada"
+    },
+    {
+      "serialNumber": "358680812653993",
+      "marca": "SAMSUNG",
+      "modelo": "SAMSUNG A17 256GB",
+      "unidade": {
+        "nome": "WB - RJ"
+      },
+      "status": "DISPONIVEL",
+      "statusProcesso": "Imagem Instalada"
+    }
+  ],
+  "duplicatas": []
+}
